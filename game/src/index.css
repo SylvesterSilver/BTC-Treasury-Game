@@ -1,0 +1,212 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #0a0e1a;
+  color: #e2e8f0;
+  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0e1a;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e2d4a;
+  border-radius: 3px;
+}
+
+/* Glow effects */
+.glow-bitcoin {
+  box-shadow: 0 0 20px rgba(247, 147, 26, 0.3);
+}
+.glow-green {
+  box-shadow: 0 0 20px rgba(52, 211, 153, 0.2);
+}
+.glow-red {
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.2);
+}
+
+/* Animated price ticker */
+@keyframes ticker-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.ticker-live {
+  animation: ticker-pulse 2s ease-in-out infinite;
+}
+
+/* Chart cone gradient */
+.cone-gradient {
+  background: linear-gradient(180deg, rgba(247,147,26,0.15) 0%, rgba(247,147,26,0.03) 100%);
+}
+
+/* Card hover */
+.game-card {
+  background: #0f1629;
+  border: 1px solid #1e2d4a;
+  border-radius: 8px;
+  transition: border-color 0.2s;
+}
+.game-card:hover {
+  border-color: #2d4a7a;
+}
+
+/* Button variants */
+.btn-bitcoin {
+  background: linear-gradient(135deg, #F7931A, #e67e00);
+  color: #000;
+  font-weight: 700;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.75rem;
+}
+.btn-bitcoin:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(247, 147, 26, 0.4);
+}
+.btn-bitcoin:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-green {
+  background: linear-gradient(135deg, #059669, #047857);
+  color: #fff;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.75rem;
+}
+.btn-green:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(5, 150, 105, 0.4);
+}
+.btn-green:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-red {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  color: #fff;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.75rem;
+}
+.btn-red:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(220, 38, 38, 0.4);
+}
+.btn-red:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-outline {
+  background: transparent;
+  color: #94a3b8;
+  font-weight: 600;
+  border: 1px solid #1e2d4a;
+  border-radius: 6px;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.75rem;
+}
+.btn-outline:hover:not(:disabled) {
+  border-color: #F7931A;
+  color: #F7931A;
+}
+.btn-outline:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Stat flash animations */
+@keyframes flash-green {
+  0% { color: #34d399; }
+  100% { color: inherit; }
+}
+@keyframes flash-red {
+  0% { color: #f87171; }
+  100% { color: inherit; }
+}
+.flash-up { animation: flash-green 1s ease-out; }
+.flash-down { animation: flash-red 1s ease-out; }
+
+/* Scanline overlay */
+.scanlines::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.03) 2px,
+    rgba(0,0,0,0.03) 4px
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* mNAV meter */
+.mnav-bar {
+  height: 8px;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+/* Number input styling */
+input[type="range"] {
+  accent-color: #F7931A;
+}
+
+/* Modal overlay */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.8);
+  backdrop-filter: blur(4px);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
