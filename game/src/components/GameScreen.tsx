@@ -182,6 +182,8 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
             onIssueCommon={(shares) => { engine.issueCommonStock(shares); syncNotifications(); }}
             onIssuePreferred={(amt) => { engine.issuePreferredStock(amt); syncNotifications(); }}
             onPayDebt={(amt) => { engine.payDownDebt(amt); syncNotifications(); }}
+            onIssueConvertibleDebt={(amt) => { engine.issueConvertibleDebt(amt); syncNotifications(); }}
+            onBuyBackStock={(shares) => { engine.buyBackStock(shares); syncNotifications(); }}
           />
         </div>
 

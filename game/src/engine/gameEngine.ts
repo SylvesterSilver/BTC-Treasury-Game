@@ -94,50 +94,94 @@ export class GameEngine {
     const roll = Math.random();
     const day = this.simulator.getCurrentDay();
 
-    if (roll > 0.99) {
-      const events: GameEvent[] = [
+    if (roll > 0.985) {
+      type EventTemplate = {
+        id: string;
+        type: GameEvent['type'];
+        title: string;
+        description: string;
+        mNavDelta: number;
+      };
+
+      const events: EventTemplate[] = [
         {
           id: `ev_${day}_etf`,
-          day,
           type: 'GOOD',
           title: 'ETF INFLOW SURGE',
-          description: 'Bitcoin ETFs see record weekly inflows. Institutional demand spikes.',
+          description: 'Bitcoin ETFs see record weekly inflows. Your premium expands.',
+          mNavDelta: +0.25,
         },
         {
           id: `ev_${day}_hack`,
-          day,
           type: 'BAD',
           title: 'MAJOR EXCHANGE HACK',
-          description: 'A top-5 exchange is hacked. Market sells off on fear.',
+          description: 'A top-5 exchange is hacked. Panic selling hammers your premium.',
+          mNavDelta: -0.30,
         },
         {
-          id: `ev_${day}_fed`,
-          day,
-          type: 'NEUTRAL',
-          title: 'FED HOLDS RATES',
-          description: 'Federal Reserve holds rates steady. Risk assets stabilize.',
+          id: `ev_${day}_fed_cut`,
+          type: 'GOOD',
+          title: 'FED RATE CUT',
+          description: 'Federal Reserve cuts rates. Risk assets surge — mNAV premium jumps.',
+          mNavDelta: +0.20,
+        },
+        {
+          id: `ev_${day}_fed_hike`,
+          type: 'BAD',
+          title: 'FED RATE HIKE',
+          description: 'Surprise Fed hike. Capital rotates out of risk assets. Premium compresses.',
+          mNavDelta: -0.20,
         },
         {
           id: `ev_${day}_nation`,
-          day,
           type: 'GOOD',
           title: 'NATION-STATE ADOPTION',
-          description: 'Another country adds Bitcoin to its sovereign reserves.',
+          description: 'Another sovereign wealth fund adds Bitcoin to reserves. Demand surge.',
+          mNavDelta: +0.30,
         },
         {
           id: `ev_${day}_sec`,
-          day,
           type: 'BAD',
           title: 'SEC ENFORCEMENT ACTION',
-          description: 'The SEC announces crackdown on crypto lending. Market dips.',
+          description: 'SEC announces crackdown on crypto-backed securities. Your premium takes a hit.',
+          mNavDelta: -0.25,
+        },
+        {
+          id: `ev_${day}_short`,
+          type: 'BAD',
+          title: 'SHORT SELLER ATTACK',
+          description: 'A prominent short seller publishes a bearish report on your BTC strategy.',
+          mNavDelta: -0.35,
+        },
+        {
+          id: `ev_${day}_upgrade`,
+          type: 'GOOD',
+          title: 'ANALYST UPGRADE',
+          description: 'Major investment bank upgrades your stock to Buy. Premium rerated higher.',
+          mNavDelta: +0.20,
+        },
+        {
+          id: `ev_${day}_halving`,
+          type: 'GOOD',
+          title: 'HALVING NARRATIVE',
+          description: 'Media frenzy around the next Bitcoin halving. BTC premium stocks rip.',
+          mNavDelta: +0.40,
+        },
+        {
+          id: `ev_${day}_stablecoin`,
+          type: 'NEUTRAL',
+          title: 'STABLECOIN REGULATION',
+          description: 'Congress passes stablecoin rules. Crypto market uncertain but stabilizes.',
+          mNavDelta: -0.05,
         },
       ];
 
       const event = events[Math.floor(Math.random() * events.length)];
-      this.model.addEvent(event);
+      this.model.applyMNavShock(event.mNavDelta);
+      this.model.addEvent({ ...event, day });
       this.addNotification(
-        event.type === 'GOOD' ? 'info' : event.type === 'BAD' ? 'warning' : 'info',
-        `${event.title}: ${event.description}`
+        event.type === 'GOOD' ? 'success' : event.type === 'BAD' ? 'warning' : 'info',
+        `📡 ${event.title}: ${event.description}`
       );
     }
   }
@@ -203,6 +247,28 @@ export class GameEngine {
         `Paid down $${amountMM.toFixed(0)}M convertible debt → stronger balance sheet`);
     } else {
       return this.addNotification('error', result.reason ?? 'Debt paydown failed');
+    }
+  }
+
+  issueConvertibleDebt(amountMM: number): Notification {
+    const price = this.simulator.getCurrentPrice();
+    const result = this.model.issueConvertibleDebt(amountMM, price);
+    if (result.success) {
+      return this.addNotification('success',
+        `Raised $${amountMM.toFixed(0)}M via convertible notes @ 6% annual interest`);
+    } else {
+      return this.addNotification('error', result.reason ?? 'Convertible note issuance failed');
+    }
+  }
+
+  buyBackStock(sharesMM: number): Notification {
+    const price = this.simulator.getCurrentPrice();
+    const result = this.model.buyBackStock(sharesMM, price);
+    if (result.success) {
+      return this.addNotification('success',
+        `Bought back ${sharesMM.toFixed(1)}M shares for $${result.costMM.toFixed(1)}M → accretive to NAV/share`);
+    } else {
+      return this.addNotification('error', result.reason ?? 'Buyback failed');
     }
   }
 
