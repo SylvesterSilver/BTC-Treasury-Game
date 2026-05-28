@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { GameMetrics, BalanceSheet } from '../engine/financialModel';
 
-type ActionTab = 'BUY_BTC' | 'ISSUE_STOCK' | 'PREFERRED' | 'DEBT';
+type ActionTab = 'BUY_BTC' | 'ISSUE_STOCK' | 'PREFERRED' | 'DEBT' | 'CONV_DEBT' | 'BUYBACK';
 
 interface Props {
   balance: BalanceSheet;
@@ -11,6 +11,8 @@ interface Props {
   onIssueCommon: (sharesMM: number) => void;
   onIssuePreferred: (amountMM: number) => void;
   onPayDebt: (amountMM: number) => void;
+  onIssueConvertibleDebt: (amountMM: number) => void;
+  onBuyBackStock: (sharesMM: number) => void;
 }
 
 function QuickAmount({ label, onClick }: { label: string; onClick: () => void }) {
@@ -25,7 +27,8 @@ function QuickAmount({ label, onClick }: { label: string; onClick: () => void })
 }
 
 export function ActionPanel({
-  balance, metrics, onBuyBTC, onSellBTC, onIssueCommon, onIssuePreferred, onPayDebt
+  balance, metrics, onBuyBTC, onSellBTC, onIssueCommon, onIssuePreferred, onPayDebt,
+  onIssueConvertibleDebt, onBuyBackStock,
 }: Props) {
   const [tab, setTab] = useState<ActionTab>('BUY_BTC');
   const [buyAmount, setBuyAmount] = useState('');
@@ -33,12 +36,16 @@ export function ActionPanel({
   const [shareAmount, setShareAmount] = useState('');
   const [prefAmount, setPrefAmount] = useState('');
   const [debtAmount, setDebtAmount] = useState('');
+  const [convDebtAmount, setConvDebtAmount] = useState('');
+  const [buybackAmount, setBuybackAmount] = useState('');
 
   const tabs: { id: ActionTab; label: string; color: string }[] = [
-    { id: 'BUY_BTC', label: '₿ BUY BTC', color: '#F7931A' },
-    { id: 'ISSUE_STOCK', label: '📈 COMMON', color: '#22c55e' },
-    { id: 'PREFERRED', label: '💎 PREFERRED', color: '#a855f7' },
-    { id: 'DEBT', label: '📉 PAY DEBT', color: '#ef4444' },
+    { id: 'BUY_BTC', label: '₿ BTC', color: '#F7931A' },
+    { id: 'ISSUE_STOCK', label: '📈 ATM', color: '#22c55e' },
+    { id: 'BUYBACK', label: '🔄 BUYBACK', color: '#06b6d4' },
+    { id: 'CONV_DEBT', label: '📋 CONV', color: '#3b82f6' },
+    { id: 'PREFERRED', label: '💎 PREF', color: '#a855f7' },
+    { id: 'DEBT', label: '💸 PAY DEBT', color: '#ef4444' },
   ];
 
   return (
@@ -286,6 +293,111 @@ export function ActionPanel({
               {debtAmount && parseFloat(debtAmount) > 0 && (
                 <div className="text-xs text-emerald-400 mt-1 font-mono">
                   Saves ${(parseFloat(debtAmount) * 0.06 / 4).toFixed(2)}M/quarter in interest
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ISSUE CONVERTIBLE DEBT TAB */}
+        {tab === 'CONV_DEBT' && (
+          <div className="space-y-4">
+            <div>
+              <div className="text-slate-400 text-xs mb-2 uppercase tracking-wider">Issue Convertible Notes</div>
+              <div className="rounded p-3 text-xs mb-3 bg-blue-900/20 border border-blue-800 text-blue-300">
+                <div className="font-bold mb-1">MSTR-Style Convertibles @ 6% Annual</div>
+                <p>Raise cheap debt — convertible notes let bondholders convert to equity if the stock runs. Capped at 50% of BTC value. Cheap leverage when BTC is rising.</p>
+              </div>
+
+              <div className="text-xs text-slate-500 mb-3">
+                Outstanding: <span className="text-blue-400 font-mono">${balance.convertibleDebtMM.toFixed(0)}M</span>
+                {' | '}Cash: <span className="text-emerald-400 font-mono">${balance.cashMM.toFixed(1)}M</span>
+              </div>
+
+              <div className="flex gap-2 flex-wrap mb-2">
+                {[100, 250, 500, 1000].map(v => (
+                  <QuickAmount key={v} label={`$${v}M`} onClick={() => setConvDebtAmount(String(v))} />
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  className="flex-1 bg-terminal-muted border border-terminal-border rounded px-3 py-2 text-sm font-mono text-white focus:border-blue-400 focus:outline-none"
+                  placeholder="Raise amount $M"
+                  type="number"
+                  value={convDebtAmount}
+                  onChange={e => setConvDebtAmount(e.target.value)}
+                />
+                <button
+                  className="px-4 py-2 text-xs font-bold uppercase rounded"
+                  style={{ background: 'linear-gradient(135deg, #1d4ed8, #2563eb)', color: '#fff', border: 'none', cursor: 'pointer' }}
+                  disabled={!convDebtAmount || parseFloat(convDebtAmount) <= 0}
+                  onClick={() => { onIssueConvertibleDebt(parseFloat(convDebtAmount)); setConvDebtAmount(''); }}
+                >
+                  ISSUE
+                </button>
+              </div>
+              {convDebtAmount && parseFloat(convDebtAmount) > 0 && (
+                <div className="text-xs text-red-400 mt-1 font-mono">
+                  Adds ${(parseFloat(convDebtAmount) * 0.06 / 4).toFixed(1)}M/quarter in interest
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* STOCK BUYBACK TAB */}
+        {tab === 'BUYBACK' && (
+          <div className="space-y-4">
+            <div>
+              <div className="text-slate-400 text-xs mb-2 uppercase tracking-wider">Repurchase Common Shares</div>
+
+              <div className={`rounded p-3 text-xs mb-3 ${
+                metrics.mNAVStatus === 'DISCOUNT' || metrics.mNAVStatus === 'DEEP_DISCOUNT'
+                  ? 'bg-cyan-900/30 border border-cyan-800 text-cyan-400'
+                  : 'bg-yellow-900/20 border border-yellow-800 text-yellow-400'
+              }`}>
+                <div className="font-bold mb-1">mNAV: {metrics.mNAV.toFixed(2)}x</div>
+                {metrics.mNAV <= 1.5
+                  ? `Discount: Buy back shares at $${metrics.stockPrice.toFixed(0)}/sh — each share holds $${metrics.navPerShare.toFixed(0)} of NAV. Accretive!`
+                  : `Premium: Buying back at ${metrics.mNAV.toFixed(1)}x NAV destroys value. Wait for a discount.`}
+              </div>
+
+              <div className="text-slate-600 text-xs mb-2">
+                Price: <span className="text-white font-mono">${metrics.stockPrice.toFixed(2)}</span>
+                {' | '}Shares: <span className="text-white font-mono">{balance.sharesOutstanding.toFixed(1)}M</span>
+                {' | '}Cash: <span className="text-emerald-400 font-mono">${balance.cashMM.toFixed(1)}M</span>
+              </div>
+
+              <div className="flex gap-2 flex-wrap mb-2">
+                {[1, 2, 5, 10].map(v => (
+                  <QuickAmount
+                    key={v}
+                    label={`${v}M sh`}
+                    onClick={() => setBuybackAmount(String(Math.min(v, balance.sharesOutstanding * 0.1)))}
+                  />
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  className="flex-1 bg-terminal-muted border border-terminal-border rounded px-3 py-2 text-sm font-mono text-white focus:border-cyan-400 focus:outline-none"
+                  placeholder="Shares (millions)"
+                  type="number"
+                  value={buybackAmount}
+                  onChange={e => setBuybackAmount(e.target.value)}
+                />
+                <button
+                  className="px-4 py-2 text-xs font-bold uppercase rounded"
+                  style={{ background: 'linear-gradient(135deg, #0e7490, #06b6d4)', color: '#fff', border: 'none', cursor: 'pointer' }}
+                  disabled={!buybackAmount || parseFloat(buybackAmount) <= 0}
+                  onClick={() => { onBuyBackStock(parseFloat(buybackAmount)); setBuybackAmount(''); }}
+                >
+                  BUY
+                </button>
+              </div>
+              {buybackAmount && parseFloat(buybackAmount) > 0 && (
+                <div className="text-xs text-cyan-400 mt-1 font-mono">
+                  Cost ≈ ${(parseFloat(buybackAmount) * metrics.stockPrice).toFixed(1)}M
+                  {' | '}Max 10% of float per action
                 </div>
               )}
             </div>

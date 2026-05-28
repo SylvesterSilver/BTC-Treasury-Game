@@ -197,10 +197,24 @@ export class FinancialModel {
     if (sharesMM > 50) return { success: false, reason: 'Cannot issue more than 50M shares at once.', proceedsMM: 0 };
 
     const proceedsMM = sharesMM * metrics.stockPrice;
+    const preIssueShares = this.balance.sharesOutstanding;
+    const preIssueNavPerShare = metrics.navPerShare;
+
     this.balance.sharesOutstanding += sharesMM;
     this.balance.cashMM += proceedsMM;
 
-    this.mNAVNoise *= (1 - sharesMM / (this.balance.sharesOutstanding) * 0.3);
+    // When mNAV > 1, issuing shares is NAV/share accretive (selling $2.8 of market cap
+    // for $2 of asset backing). Without adjustment, stock price would rise — which is wrong.
+    // Correct mNAV downward so stock price stays flat or slightly declines.
+    // Formula: mNAV_new = mNAV_old × (navPerShare_old / navPerShare_new) × sentiment_penalty
+    const newNavPerShare = this.computeMetrics(btcPrice).navPerShare;
+    if (newNavPerShare > 0 && preIssueNavPerShare > 0) {
+      const navAccretionFactor = preIssueNavPerShare / newNavPerShare;
+      const dilutionPct = sharesMM / preIssueShares;
+      const sentimentPenalty = Math.max(0.75, 1 - dilutionPct * 1.5);
+      this.mNAVNoise *= navAccretionFactor * sentimentPenalty;
+    }
+    this.mNAVNoise = Math.max(0.1, this.mNAVNoise);
 
     return { success: true, proceedsMM };
   }
@@ -232,6 +246,50 @@ export class FinancialModel {
     return { success: true, btcBought };
   }
 
+  issueConvertibleDebt(amountMM: number, btcPrice: number): { success: boolean; reason?: string } {
+    if (amountMM <= 0) return { success: false, reason: 'Invalid amount.' };
+    if (amountMM > 1000) return { success: false, reason: 'Cannot raise more than $1B in convertible notes at once.' };
+
+    const metrics = this.computeMetrics(btcPrice);
+    const maxDebt = metrics.btcValueMM * 0.5;
+    if (this.balance.convertibleDebtMM + amountMM > maxDebt) {
+      return { success: false, reason: `Debt limit: convertible notes can't exceed 50% of BTC value ($${maxDebt.toFixed(0)}M).` };
+    }
+    if (metrics.mNAV < 0.7) {
+      return { success: false, reason: "Bond market won't lend at this mNAV discount — too distressed." };
+    }
+
+    this.balance.convertibleDebtMM += amountMM;
+    this.balance.cashMM += amountMM;
+    // Leverage excites the market short-term but adds risk premium over time
+    this.mNAVNoise += 0.1;
+
+    return { success: true };
+  }
+
+  buyBackStock(sharesMM: number, btcPrice: number): { success: boolean; reason?: string; costMM: number } {
+    const metrics = this.computeMetrics(btcPrice);
+    if (sharesMM <= 0) return { success: false, reason: 'Invalid share amount.', costMM: 0 };
+    if (sharesMM >= this.balance.sharesOutstanding * 0.1) {
+      return { success: false, reason: 'Cannot buy back more than 10% of shares at once.', costMM: 0 };
+    }
+
+    const costMM = sharesMM * metrics.stockPrice;
+    if (costMM > this.balance.cashMM) {
+      return { success: false, reason: `Insufficient cash. Need $${costMM.toFixed(1)}M, have $${this.balance.cashMM.toFixed(1)}M`, costMM: 0 };
+    }
+    if (metrics.mNAV > 1.5) {
+      return { success: false, reason: 'Buybacks at this premium destroy NAV per share. Wait for a discount.', costMM: 0 };
+    }
+
+    this.balance.sharesOutstanding -= sharesMM;
+    this.balance.cashMM -= costMM;
+    // Buybacks signal confidence, boost mNAV
+    this.mNAVNoise += 0.12;
+
+    return { success: true, costMM };
+  }
+
   payDownDebt(amountMM: number): { success: boolean; reason?: string } {
     if (amountMM <= 0) return { success: false, reason: 'Invalid amount.' };
     if (amountMM > this.balance.cashMM) return { success: false, reason: 'Insufficient cash.' };
@@ -259,6 +317,10 @@ export class FinancialModel {
 
   getMNAV(): number {
     return this.mNAVNoise;
+  }
+
+  applyMNavShock(delta: number): void {
+    this.mNAVNoise = Math.max(0.1, this.mNAVNoise + delta);
   }
 
   getEvents(): GameEvent[] {
