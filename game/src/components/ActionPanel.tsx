@@ -69,10 +69,10 @@ export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueComm
                 Price: <span className="text-white font-mono">${metrics.btcPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
               </div>
               <div className="flex flex-wrap gap-1 mb-2">
-                {[10, 50, 100, 250, 500].map(v => (
+                {[10, 50, 100, 250, 500, 1000].map(v => (
                   <Quick key={v} label={`$${v}M`} onClick={() => setBuyAmt(String(v))} />
                 ))}
-                <Quick label="MAX" onClick={() => setBuyAmt((balance.cashMM * 0.95).toFixed(0))} />
+                <Quick label="MAX" onClick={() => setBuyAmt(Math.floor(balance.cashMM * 0.94).toString())} />
               </div>
               <div className="flex gap-2">
                 <input
@@ -224,7 +224,7 @@ export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueComm
               </div>
             )}
             <div className="flex flex-wrap gap-1 mb-2">
-              {[50, 100, 200, 500].map(v => (
+              {[50, 100, 200, 500, 1000].map(v => (
                 <Quick key={v} label={`$${v}M`} onClick={() => setPrefAmt(String(v))} />
               ))}
             </div>

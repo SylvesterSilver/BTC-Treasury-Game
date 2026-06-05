@@ -10,6 +10,7 @@ import { NotificationFeed } from './NotificationFeed';
 import { GameOverScreen } from './GameOverScreen';
 import { NewsTicker } from './NewsTicker';
 import { SynthEngine } from '../engine/synthEngine';
+import { DonateQR } from './DonateQR';
 
 interface Props {
   config: GameConfig;
@@ -421,8 +422,15 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
         </div>
       </div>
 
-      {/* ── NEWS TICKER ── */}
-      <NewsTicker activeEvent={activeNewsEvent} />
+      {/* ── DONATE QR + NEWS TICKER ── */}
+      <div className="flex items-stretch border-t border-[#1a2540] bg-[#04070f] flex-shrink-0">
+        <div className="flex-shrink-0 border-r border-[#1a2540] hidden sm:flex items-center px-2 py-1">
+          <DonateQR />
+        </div>
+        <div className="flex-1 overflow-hidden">
+          <NewsTicker activeEvent={activeNewsEvent} />
+        </div>
+      </div>
 
       {showGameOver && (
         <GameOverScreen
