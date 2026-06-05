@@ -309,7 +309,7 @@ export class FinancialModel {
   buyBTC(usdMM: number, btcPrice: number): { success: boolean; reason?: string; btcBought: number; impact: TradeImpact } {
     const empty: TradeImpact = { priceImpactPct: 0, mNavImpact: 0, sentimentImpact: 0, stockImpactPct: 0 };
     if (usdMM <= 0) return { success: false, reason: 'Invalid amount.', btcBought: 0, impact: empty };
-    if (usdMM > this.balance.cashMM * 0.95) return { success: false, reason: `Max $${(this.balance.cashMM * 0.95).toFixed(0)}M (keep 5% reserve).`, btcBought: 0, impact: empty };
+    if (usdMM > this.balance.cashMM * 0.9501) return { success: false, reason: `Max $${Math.floor(this.balance.cashMM * 0.95)}M (keep 5% reserve).`, btcBought: 0, impact: empty };
 
     const btcBought = (usdMM * 1e6) / btcPrice;
     this.balance.cashMM -= usdMM;
