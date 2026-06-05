@@ -361,17 +361,22 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
         <div className="md:hidden h-full flex flex-col">
           <div className="flex-1 overflow-hidden px-2 pt-2 pb-1">
             {mobileTab === 'CHART' && (
-              <div className="h-full flex flex-col gap-2">
-                <div ref={chartAreaRef} className={`game-card flex-1 min-h-0 relative overflow-hidden ${flashClass}`} style={{ minHeight: 220 }}>
+              <div className="flex flex-col gap-2" style={{ height: '100%' }}>
+                {/* Explicit height so Recharts ResponsiveContainer can measure — flex alone doesn't work on mobile */}
+                <div
+                  ref={chartAreaRef}
+                  className={`game-card relative overflow-hidden ${flashClass}`}
+                  style={{ height: 'calc(100svh - 310px)', minHeight: 220, maxHeight: 480 }}
+                >
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 opacity-[0.02]">
-                    <span style={{ fontSize: '10rem', color: '#F7931A', lineHeight: 1 }}>₿</span>
+                    <span style={{ fontSize: '8rem', color: '#F7931A', lineHeight: 1 }}>₿</span>
                   </div>
                   <div className="relative z-10 w-full h-full">
                     <PriceChart priceHistory={state.priceHistory} conePoints={conePoints} currentPrice={currentPrice} isHistorical={isHistorical} />
                   </div>
                   {particles.map(p => <div key={p.id} className="btc-particle" style={{ left: p.x, top: p.y }}>₿</div>)}
                 </div>
-                <div style={{ maxHeight: 120, overflowY: 'auto' }}>
+                <div style={{ maxHeight: 110, overflowY: 'auto', flexShrink: 0 }}>
                   <NotificationFeed notifications={notifications} />
                 </div>
               </div>
