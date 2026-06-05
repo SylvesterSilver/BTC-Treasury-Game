@@ -28,6 +28,10 @@ export interface GameMetrics {
   isInsolvent: boolean;
   insolventReason?: string;
   preferredCoverageRatio: number;
+  sentiment: number;           // 0–100
+  sentimentLabel: string;
+  sentimentColor: string;
+  atmCooldown: number;         // 0–100, how "used up" ATM issuance is
 }
 
 export interface GameEvent {
@@ -39,29 +43,41 @@ export interface GameEvent {
   effect?: Partial<BalanceSheet>;
 }
 
+export interface TradeImpact {
+  priceImpactPct: number;    // immediate BTC price move
+  mNavImpact: number;        // immediate mNAV delta
+  sentimentImpact: number;   // immediate sentiment delta
+  stockImpactPct: number;    // immediate stock price % move
+}
+
 const PREFERRED_DIV_RATE = 0.08;
 const PREFERRED_FACE_PER_SHARE = 0.025;
-const STOCK_MARKET_NOISE = 0.05;
+// BTC circulating supply proxy for impact calc
+const BTC_SUPPLY_PROXY = 19_700_000;
 
 export class FinancialModel {
   private era: Era;
   private balance: BalanceSheet;
-  private mNAVNoise: number = 1.0;
+  private mNAVLevel: number = 1.5;
+  private sentimentLevel: number = 50;   // 0–100
+  private atmIssuanceCount: number = 0;  // times ATM used in last 30 days
+  private atmCooldownDays: number = 0;   // days since last ATM use
+  private stockPriceMultiplier: number = 1.0; // extra stock shock layer
   private events: GameEvent[] = [];
   private dayCount: number = 0;
 
   constructor(era: Era, startingCapitalMM?: number) {
     this.era = era;
     this.balance = this.initializeBalance(era, startingCapitalMM);
-    this.mNAVNoise = era.id === 'now2024' || era.id === 'future2025' ? 2.8 : 1.5;
+    this.mNAVLevel = era.id === 'now2024' || era.id === 'future2025' ? 2.8 : 1.5;
+    this.sentimentLevel = 50;
   }
 
   private initializeBalance(era: Era, startingCapitalMM?: number): BalanceSheet {
     const prefShares = era.startingPreferred / PREFERRED_FACE_PER_SHARE;
-    const cashMM = startingCapitalMM ?? era.startingCash;
     return {
       btcHeld: era.startingBTC,
-      cashMM: cashMM,
+      cashMM: startingCapitalMM ?? era.startingCash,
       convertibleDebtMM: era.startingDebt,
       preferredFaceValueMM: era.startingPreferred,
       preferredDivRate: PREFERRED_DIV_RATE,
@@ -71,9 +87,7 @@ export class FinancialModel {
     };
   }
 
-  getBalance(): BalanceSheet {
-    return { ...this.balance };
-  }
+  getBalance(): BalanceSheet { return { ...this.balance }; }
 
   computeMetrics(btcPrice: number): GameMetrics {
     const btcValueMM = (this.balance.btcHeld * btcPrice) / 1e6;
@@ -82,154 +96,239 @@ export class FinancialModel {
     const netAssetValueMM = totalAssetsMM - totalLiabilitiesMM;
     const navPerShare = netAssetValueMM / this.balance.sharesOutstanding;
 
-    const mNAV = this.mNAVNoise;
-    const stockPrice = Math.max(navPerShare * mNAV, 0.01);
+    // mNAV capped at 4x realistically; ATM issuance compresses it
+    const mNAV = Math.min(this.mNAVLevel, 4.0);
+    const rawStockPrice = Math.max(navPerShare * mNAV, 0.01);
+    const stockPrice = Math.max(rawStockPrice * this.stockPriceMultiplier, 0.01);
 
     let mNAVStatus: GameMetrics['mNAVStatus'];
-    if (mNAV >= 3.5) mNAVStatus = 'EXTREME_PREMIUM';
-    else if (mNAV >= 2.0) mNAVStatus = 'HIGH_PREMIUM';
+    if (mNAV >= 3.0) mNAVStatus = 'EXTREME_PREMIUM';
+    else if (mNAV >= 1.8) mNAVStatus = 'HIGH_PREMIUM';
     else if (mNAV >= 0.9) mNAVStatus = 'FAIR';
     else if (mNAV >= 0.6) mNAVStatus = 'DISCOUNT';
     else mNAVStatus = 'DEEP_DISCOUNT';
 
     const btcPerShare = this.balance.btcHeld / this.balance.sharesOutstanding;
 
-    const quarterlyInterest = (this.balance.convertibleDebtMM * 0.06) / 4;
-    const quarterlyPrefDiv = (this.balance.preferredFaceValueMM * PREFERRED_DIV_RATE) / 4;
-    const quarterlyOpex = this.era.softwareRevenue * 0.85;
-    const quarterlyRevenue = this.era.softwareRevenue;
-    const quarterlyBurnMM = quarterlyInterest + quarterlyPrefDiv + quarterlyOpex - quarterlyRevenue;
+    // Monthly cost (dividends paid monthly now)
+    const monthlyInterest = (this.balance.convertibleDebtMM * 0.06) / 12;
+    const monthlyPrefDiv = (this.balance.preferredFaceValueMM * PREFERRED_DIV_RATE) / 12;
+    const monthlyOpex = (this.era.softwareRevenue * 0.85) / 3;
+    const monthlyRevenue = this.era.softwareRevenue / 3;
+    const monthlyBurn = monthlyInterest + monthlyPrefDiv + monthlyOpex - monthlyRevenue;
+    // Convert to quarterly for display compatibility
+    const quarterlyBurnMM = monthlyBurn * 3;
 
-    const monthsRunway = quarterlyBurnMM > 0
-      ? (this.balance.cashMM / quarterlyBurnMM) * 3
-      : 999;
-
-    const leverageRatio = btcValueMM > 0
-      ? totalLiabilitiesMM / btcValueMM
-      : 999;
-
+    const monthsRunway = monthlyBurn > 0 ? this.balance.cashMM / monthlyBurn : 999;
+    const leverageRatio = btcValueMM > 0 ? totalLiabilitiesMM / btcValueMM : 999;
     const preferredCoverageRatio = this.balance.preferredFaceValueMM > 0
-      ? btcValueMM / this.balance.preferredFaceValueMM
-      : 999;
+      ? btcValueMM / this.balance.preferredFaceValueMM : 999;
 
+    // Sentiment label/color
+    const sentiment = Math.max(0, Math.min(100, this.sentimentLevel));
+    let sentimentLabel: string;
+    let sentimentColor: string;
+    if (sentiment >= 80) { sentimentLabel = 'EUPHORIC'; sentimentColor = '#a855f7'; }
+    else if (sentiment >= 65) { sentimentLabel = 'BULLISH'; sentimentColor = '#22c55e'; }
+    else if (sentiment >= 45) { sentimentLabel = 'NEUTRAL'; sentimentColor = '#f59e0b'; }
+    else if (sentiment >= 25) { sentimentLabel = 'BEARISH'; sentimentColor = '#ef4444'; }
+    else { sentimentLabel = 'PANIC'; sentimentColor = '#7f1d1d'; }
+
+    const atmCooldown = Math.min(100, this.atmIssuanceCount * 25);
+
+    // Insolvency check
+    const monthlyPrefDivActual = (this.balance.preferredFaceValueMM * PREFERRED_DIV_RATE) / 12;
     let isInsolvent = false;
     let insolventReason: string | undefined;
-
     if (this.balance.cashMM < -50) {
       isInsolvent = true;
       insolventReason = 'Cash reserves exhausted. Cannot meet obligations.';
-    } else if (navPerShare < -10 && this.balance.sharesOutstanding > 0) {
+    } else if (navPerShare < -10) {
       isInsolvent = true;
       insolventReason = 'Negative equity: liabilities far exceed all assets.';
     } else if (
       this.balance.preferredFaceValueMM > btcValueMM * 3 &&
-      this.balance.cashMM < quarterlyPrefDiv * 2 &&
+      this.balance.cashMM < monthlyPrefDivActual * 2 &&
       btcPrice < 0.5 * (this.balance.convertibleDebtMM + this.balance.preferredFaceValueMM) / Math.max(this.balance.btcHeld, 1)
     ) {
       isInsolvent = true;
-      insolventReason = 'Preferred obligations are a runaway train. No path to recovery.';
+      insolventReason = 'Preferred dividend obligations are unrecoverable. Common stock goes to zero.';
     }
 
     return {
-      btcPrice,
-      btcValueMM,
-      totalAssetsMM,
-      totalLiabilitiesMM,
-      netAssetValueMM,
-      navPerShare,
-      stockPrice,
-      mNAV,
-      mNAVStatus,
-      btcPerShare,
-      quarterlyBurnMM,
-      monthsRunway,
-      leverageRatio,
-      isInsolvent,
-      insolventReason,
-      preferredCoverageRatio,
+      btcPrice, btcValueMM, totalAssetsMM, totalLiabilitiesMM, netAssetValueMM,
+      navPerShare, stockPrice, mNAV, mNAVStatus, btcPerShare,
+      quarterlyBurnMM, monthsRunway, leverageRatio,
+      isInsolvent, insolventReason, preferredCoverageRatio,
+      sentiment, sentimentLabel, sentimentColor, atmCooldown,
     };
   }
 
   tick(btcPrice: number, _dayOfWeek: number): void {
     this.dayCount++;
 
+    // Daily software ops
     const dailyRevenue = this.era.softwareRevenue / 90;
     const dailyOpex = (this.era.softwareRevenue * 0.85) / 90;
     this.balance.cashMM += (dailyRevenue - dailyOpex);
 
-    const dailyInterest = (this.balance.convertibleDebtMM * 0.06) / 365;
-    this.balance.cashMM -= dailyInterest;
+    // Daily interest
+    this.balance.cashMM -= (this.balance.convertibleDebtMM * 0.06) / 365;
 
+    // Daily preferred div accrual
     const dailyPrefDiv = (this.balance.preferredFaceValueMM * PREFERRED_DIV_RATE) / 365;
     this.balance.preferredDivAccruedMM += dailyPrefDiv;
 
-    if (this.dayCount % 90 === 0) {
+    // Pay preferred dividends MONTHLY (every 30 days)
+    if (this.dayCount % 30 === 0) {
       this.balance.cashMM -= this.balance.preferredDivAccruedMM;
       this.balance.preferredDivAccruedMM = 0;
     }
 
-    const targetMNav = this.computeTargetMNav(btcPrice);
-    this.mNAVNoise += (targetMNav - this.mNAVNoise) * 0.02 + (Math.random() - 0.5) * STOCK_MARKET_NOISE;
-    this.mNAVNoise = Math.max(0.1, this.mNAVNoise);
+    // ATM cooldown recovery
+    if (this.atmCooldownDays > 0) {
+      this.atmCooldownDays--;
+    }
+    if (this.dayCount % 30 === 0 && this.atmIssuanceCount > 0) {
+      this.atmIssuanceCount = Math.max(0, this.atmIssuanceCount - 1);
+    }
+
+    // Restore stock price multiplier gradually
+    this.stockPriceMultiplier += (1.0 - this.stockPriceMultiplier) * 0.01;
+    this.stockPriceMultiplier = Math.max(0.05, this.stockPriceMultiplier);
+
+    // Drift mNAV toward target
+    const target = this.computeTargetMNav(btcPrice);
+    this.mNAVLevel += (target - this.mNAVLevel) * 0.015 + (Math.random() - 0.5) * 0.04;
+    this.mNAVLevel = Math.max(0.1, Math.min(4.0, this.mNAVLevel));
+
+    // Drift sentiment
+    const sentTarget = this.computeTargetSentiment(btcPrice);
+    this.sentimentLevel += (sentTarget - this.sentimentLevel) * 0.02 + (Math.random() - 0.5) * 1.5;
+    this.sentimentLevel = Math.max(0, Math.min(100, this.sentimentLevel));
   }
 
   private computeTargetMNav(btcPrice: number): number {
     const metrics = this.computeMetrics(btcPrice);
     let base = 1.5;
-
-    if (metrics.leverageRatio < 0.3) base += 1.5;
-    else if (metrics.leverageRatio < 0.5) base += 0.8;
+    if (metrics.leverageRatio < 0.3) base += 1.2;
+    else if (metrics.leverageRatio < 0.5) base += 0.6;
     else if (metrics.leverageRatio > 1.5) base -= 0.5;
 
-    const btcConcentration = metrics.btcValueMM / Math.max(metrics.totalAssetsMM, 1);
-    base += btcConcentration * 0.5;
+    const btcConc = metrics.btcValueMM / Math.max(metrics.totalAssetsMM, 1);
+    base += btcConc * 0.4;
 
     if (metrics.preferredCoverageRatio < 1.5) base -= 0.8;
     if (metrics.preferredCoverageRatio < 1.0) base -= 0.5;
 
-    return Math.max(0.2, Math.min(6.0, base));
+    // Sentiment boost
+    base += (this.sentimentLevel - 50) * 0.015;
+
+    return Math.max(0.2, Math.min(4.0, base));
   }
 
-  issueCommonStock(sharesMM: number, btcPrice: number): { success: boolean; reason?: string; proceedsMM: number } {
+  private computeTargetSentiment(btcPrice: number): number {
     const metrics = this.computeMetrics(btcPrice);
-    if (metrics.stockPrice <= 0) return { success: false, reason: 'Stock price is zero.', proceedsMM: 0 };
-    if (sharesMM <= 0) return { success: false, reason: 'Invalid share amount.', proceedsMM: 0 };
-    if (sharesMM > 50) return { success: false, reason: 'Cannot issue more than 50M shares at once.', proceedsMM: 0 };
+    let base = 50;
+
+    // BTC treasury quality
+    if (metrics.btcValueMM > 5000) base += 15;
+    else if (metrics.btcValueMM > 1000) base += 8;
+
+    // Leverage risk
+    if (metrics.leverageRatio > 1.5) base -= 20;
+    else if (metrics.leverageRatio < 0.3) base += 10;
+
+    // Runway
+    if (metrics.monthsRunway < 3) base -= 25;
+    else if (metrics.monthsRunway > 24) base += 10;
+
+    // ATM overuse penalty
+    base -= this.atmIssuanceCount * 8;
+
+    return Math.max(5, Math.min(95, base));
+  }
+
+  // Compute price impact from a BTC trade
+  private computeBTCTradeImpact(btcAmount: number, isBuy: boolean): TradeImpact {
+    // Market impact: relative to circulating supply
+    const supplyFraction = btcAmount / BTC_SUPPLY_PROXY;
+    const rawImpact = supplyFraction * 25; // 1% of supply = 25% price move (arcade-tuned)
+    const priceImpactPct = isBuy ? rawImpact : -rawImpact * 1.8; // sells hit harder
+
+    const mNavImpact = isBuy ? rawImpact * 0.3 : -rawImpact * 0.8;
+    const sentimentImpact = isBuy ? rawImpact * 8 : -rawImpact * 15;
+    // Stock tanks hard on BTC sell
+    const stockImpactPct = isBuy ? rawImpact * 0.5 : -rawImpact * 2.5;
+
+    return { priceImpactPct, mNavImpact, sentimentImpact, stockImpactPct };
+  }
+
+  // --- ACTIONS ---
+
+  issueCommonStock(sharesMM: number, btcPrice: number): { success: boolean; reason?: string; proceedsMM: number; impact: TradeImpact } {
+    const emptyImpact: TradeImpact = { priceImpactPct: 0, mNavImpact: 0, sentimentImpact: 0, stockImpactPct: 0 };
+    const metrics = this.computeMetrics(btcPrice);
+    if (metrics.stockPrice <= 0) return { success: false, reason: 'Stock price is zero.', proceedsMM: 0, impact: emptyImpact };
+    if (sharesMM <= 0 || sharesMM > 50) return { success: false, reason: 'Enter 0.1–50M shares.', proceedsMM: 0, impact: emptyImpact };
 
     const proceedsMM = sharesMM * metrics.stockPrice;
     this.balance.sharesOutstanding += sharesMM;
     this.balance.cashMM += proceedsMM;
 
-    this.mNAVNoise *= (1 - sharesMM / (this.balance.sharesOutstanding) * 0.3);
+    // Each ATM use compresses mNAV — harder if used frequently
+    const dilutionPct = sharesMM / this.balance.sharesOutstanding;
+    const mNavHit = dilutionPct * 2.0 + this.atmIssuanceCount * 0.1;
+    this.mNAVLevel = Math.max(0.5, this.mNAVLevel - mNavHit);
 
-    return { success: true, proceedsMM };
+    // Stock price shock from dilution
+    const stockShock = dilutionPct * 1.5 + this.atmIssuanceCount * 0.05;
+    this.stockPriceMultiplier *= Math.max(0.5, 1 - stockShock);
+
+    // Sentiment penalty for overuse
+    this.atmIssuanceCount++;
+    this.atmCooldownDays = 7;
+    const sentimentHit = 3 + this.atmIssuanceCount * 4;
+    this.sentimentLevel = Math.max(5, this.sentimentLevel - sentimentHit);
+
+    const impact: TradeImpact = {
+      priceImpactPct: 0,
+      mNavImpact: -mNavHit,
+      sentimentImpact: -sentimentHit,
+      stockImpactPct: -stockShock * 100,
+    };
+    return { success: true, proceedsMM, impact };
   }
 
   issuePreferredStock(proceedsMM: number, btcPrice: number): { success: boolean; reason?: string } {
     if (proceedsMM <= 0) return { success: false, reason: 'Invalid amount.' };
-    if (proceedsMM > 500) return { success: false, reason: 'Cannot raise more than $500M preferred at once.' };
-
+    if (proceedsMM > 500) return { success: false, reason: 'Max $500M per issuance.' };
     const metrics = this.computeMetrics(btcPrice);
-    if (metrics.mNAV < 0.8) return { success: false, reason: "Market won't buy preferred at this mNAV discount." };
+    if (metrics.mNAV < 0.8) return { success: false, reason: "Market won't buy preferred at this discount." };
 
     this.balance.preferredFaceValueMM += proceedsMM;
     this.balance.cashMM += proceedsMM;
     this.balance.preferredSharesMM += proceedsMM / PREFERRED_FACE_PER_SHARE;
-
     return { success: true };
   }
 
-  buyBTC(usdMM: number, btcPrice: number): { success: boolean; reason?: string; btcBought: number } {
-    if (usdMM <= 0) return { success: false, reason: 'Invalid amount.', btcBought: 0 };
-    if (usdMM > this.balance.cashMM) return { success: false, reason: `Insufficient cash. Have $${this.balance.cashMM.toFixed(1)}M`, btcBought: 0 };
-    if (usdMM > this.balance.cashMM * 0.95) return { success: false, reason: 'Must keep 5% cash reserve.', btcBought: 0 };
+  buyBTC(usdMM: number, btcPrice: number): { success: boolean; reason?: string; btcBought: number; impact: TradeImpact } {
+    const emptyImpact: TradeImpact = { priceImpactPct: 0, mNavImpact: 0, sentimentImpact: 0, stockImpactPct: 0 };
+    if (usdMM <= 0) return { success: false, reason: 'Invalid amount.', btcBought: 0, impact: emptyImpact };
+    if (usdMM > this.balance.cashMM * 0.95) return { success: false, reason: `Max $${(this.balance.cashMM * 0.95).toFixed(0)}M (keep 5% reserve).`, btcBought: 0, impact: emptyImpact };
 
     const btcBought = (usdMM * 1e6) / btcPrice;
     this.balance.cashMM -= usdMM;
     this.balance.btcHeld += btcBought;
-    this.mNAVNoise += 0.05;
 
-    return { success: true, btcBought };
+    const impact = this.computeBTCTradeImpact(btcBought, true);
+
+    // Apply effects
+    this.mNAVLevel = Math.min(4.0, this.mNAVLevel + impact.mNavImpact);
+    this.sentimentLevel = Math.min(100, this.sentimentLevel + impact.sentimentImpact);
+    this.stockPriceMultiplier *= (1 + impact.stockImpactPct / 100);
+
+    return { success: true, btcBought, impact };
   }
 
   payDownDebt(amountMM: number): { success: boolean; reason?: string } {
@@ -240,32 +339,32 @@ export class FinancialModel {
     const actual = Math.min(amountMM, this.balance.convertibleDebtMM);
     this.balance.cashMM -= actual;
     this.balance.convertibleDebtMM = Math.max(0, this.balance.convertibleDebtMM - actual);
-    this.mNAVNoise += 0.08;
-
+    this.mNAVLevel = Math.min(4.0, this.mNAVLevel + 0.08);
+    this.sentimentLevel = Math.min(100, this.sentimentLevel + 3);
     return { success: true };
   }
 
-  sellBTC(btcAmount: number, btcPrice: number): { success: boolean; reason?: string; proceedsMM: number } {
-    if (btcAmount <= 0) return { success: false, reason: 'Invalid amount.', proceedsMM: 0 };
-    if (btcAmount > this.balance.btcHeld) return { success: false, reason: `Only have ${this.balance.btcHeld.toFixed(0)} BTC.`, proceedsMM: 0 };
+  sellBTC(btcAmount: number, btcPrice: number): { success: boolean; reason?: string; proceedsMM: number; impact: TradeImpact } {
+    const emptyImpact: TradeImpact = { priceImpactPct: 0, mNavImpact: 0, sentimentImpact: 0, stockImpactPct: 0 };
+    if (btcAmount <= 0) return { success: false, reason: 'Invalid amount.', proceedsMM: 0, impact: emptyImpact };
+    if (btcAmount > this.balance.btcHeld) return { success: false, reason: `Only have ${this.balance.btcHeld.toFixed(0)} BTC.`, proceedsMM: 0, impact: emptyImpact };
 
     const proceedsMM = (btcAmount * btcPrice) / 1e6;
     this.balance.btcHeld -= btcAmount;
     this.balance.cashMM += proceedsMM;
-    this.mNAVNoise = Math.max(0.1, this.mNAVNoise - 0.15);
 
-    return { success: true, proceedsMM };
+    const impact = this.computeBTCTradeImpact(btcAmount, false);
+
+    // Sell BTC = massive stock price crater
+    this.mNAVLevel = Math.max(0.1, this.mNAVLevel + impact.mNavImpact);
+    this.sentimentLevel = Math.max(0, this.sentimentLevel + impact.sentimentImpact);
+    this.stockPriceMultiplier *= Math.max(0.1, 1 + impact.stockImpactPct / 100);
+
+    return { success: true, proceedsMM, impact };
   }
 
-  getMNAV(): number {
-    return this.mNAVNoise;
-  }
-
-  getEvents(): GameEvent[] {
-    return this.events;
-  }
-
-  addEvent(event: GameEvent): void {
-    this.events.push(event);
-  }
+  getMNAV(): number { return this.mNAVLevel; }
+  getSentiment(): number { return this.sentimentLevel; }
+  getEvents(): GameEvent[] { return this.events; }
+  addEvent(event: GameEvent): void { this.events.push(event); }
 }

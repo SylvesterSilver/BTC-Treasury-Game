@@ -26,10 +26,10 @@ export interface GameState {
   metrics: GameMetrics;
   speed: TimeSpeed;
   events: GameEvent[];
-  winScore: number;
   daysSurvived: number;
   totalDays: number;
   notifications: Notification[];
+  lastTradeFlash?: 'BUY' | 'SELL' | 'ATM' | null;
 }
 
 export interface Notification {
@@ -45,6 +45,7 @@ export class GameEngine {
   private era: Era;
   private notifications: Notification[] = [];
   private readonly totalGameDays: number = 730;
+  private lastTradeFlash: 'BUY' | 'SELL' | 'ATM' | null = null;
 
   constructor(era: Era, config?: GameConfig) {
     this.era = era;
@@ -56,6 +57,8 @@ export class GameEngine {
     const currentDay = this.simulator.getCurrentDay();
     const currentPrice = this.simulator.getCurrentPrice();
     const metrics = this.model.computeMetrics(currentPrice);
+    const flash = this.lastTradeFlash;
+    this.lastTradeFlash = null;
 
     return {
       phase: metrics.isInsolvent ? 'GAME_OVER_LOSE' : 'RUNNING',
@@ -68,87 +71,48 @@ export class GameEngine {
       metrics,
       speed: 'PAUSED',
       events: this.model.getEvents(),
-      winScore: this.model.getBalance().btcHeld,
       daysSurvived: currentDay,
       totalDays: this.totalGameDays,
       notifications: this.notifications,
+      lastTradeFlash: flash,
     };
   }
 
   tick(): void {
     const newPoints = this.simulator.advance(1);
     if (newPoints.length > 0) {
-      const price = newPoints[0].price;
-      this.model.tick(price, this.simulator.getCurrentDay() % 7);
+      this.model.tick(newPoints[0].price, this.simulator.getCurrentDay() % 7);
     }
     this.maybeFireEvent();
   }
 
   tickDays(days: number): void {
-    for (let i = 0; i < days; i++) {
-      this.tick();
-    }
+    for (let i = 0; i < days; i++) this.tick();
   }
 
   private maybeFireEvent(): void {
-    const roll = Math.random();
-    const day = this.simulator.getCurrentDay();
-
-    if (roll > 0.99) {
+    if (Math.random() > 0.99) {
+      const day = this.simulator.getCurrentDay();
       const events: GameEvent[] = [
-        {
-          id: `ev_${day}_etf`,
-          day,
-          type: 'GOOD',
-          title: 'ETF INFLOW SURGE',
-          description: 'Bitcoin ETFs see record weekly inflows. Institutional demand spikes.',
-        },
-        {
-          id: `ev_${day}_hack`,
-          day,
-          type: 'BAD',
-          title: 'MAJOR EXCHANGE HACK',
-          description: 'A top-5 exchange is hacked. Market sells off on fear.',
-        },
-        {
-          id: `ev_${day}_fed`,
-          day,
-          type: 'NEUTRAL',
-          title: 'FED HOLDS RATES',
-          description: 'Federal Reserve holds rates steady. Risk assets stabilize.',
-        },
-        {
-          id: `ev_${day}_nation`,
-          day,
-          type: 'GOOD',
-          title: 'NATION-STATE ADOPTION',
-          description: 'Another country adds Bitcoin to its sovereign reserves.',
-        },
-        {
-          id: `ev_${day}_sec`,
-          day,
-          type: 'BAD',
-          title: 'SEC ENFORCEMENT ACTION',
-          description: 'The SEC announces crackdown on crypto lending. Market dips.',
-        },
+        { id: `ev_${day}_etf`, day, type: 'GOOD', title: 'ETF INFLOW SURGE', description: 'Bitcoin ETFs see record weekly inflows.' },
+        { id: `ev_${day}_hack`, day, type: 'BAD', title: 'EXCHANGE HACK', description: 'Major exchange breached — fear spreads.' },
+        { id: `ev_${day}_fed`, day, type: 'NEUTRAL', title: 'FED HOLDS RATES', description: 'Federal Reserve holds. Risk assets breathe.' },
+        { id: `ev_${day}_nation`, day, type: 'GOOD', title: 'NATION-STATE BUYS', description: 'Sovereign fund adds Bitcoin to reserves.' },
+        { id: `ev_${day}_sec`, day, type: 'BAD', title: 'REGULATORY CRACKDOWN', description: 'SEC targets crypto lending platforms.' },
+        { id: `ev_${day}_halving`, day, type: 'GOOD', title: 'HALVING BUZZ', description: 'Supply shock narrative explodes on social media.' },
+        { id: `ev_${day}_whale`, day, type: 'BAD', title: 'WHALE DUMP DETECTED', description: 'On-chain data shows massive BTC outflow to exchanges.' },
       ];
-
       const event = events[Math.floor(Math.random() * events.length)];
       this.model.addEvent(event);
       this.addNotification(
         event.type === 'GOOD' ? 'info' : event.type === 'BAD' ? 'warning' : 'info',
-        `${event.title}: ${event.description}`
+        `⚡ ${event.title}: ${event.description}`
       );
     }
   }
 
-  getConePoints(days: number = 90) {
-    return this.simulator.getConePoints(days);
-  }
-
-  getSimulator() {
-    return this.simulator;
-  }
+  getConePoints(days: number = 90) { return this.simulator.getConePoints(days); }
+  getSimulator() { return this.simulator; }
 
   // --- ACTIONS ---
 
@@ -156,33 +120,43 @@ export class GameEngine {
     const price = this.simulator.getCurrentPrice();
     const result = this.model.buyBTC(amountMM, price);
     if (result.success) {
+      // Apply price impact to the chart
+      if (Math.abs(result.impact.priceImpactPct) > 0.001) {
+        this.simulator.applyMarketImpact(result.impact.priceImpactPct);
+      }
+      this.lastTradeFlash = 'BUY';
+      const pctStr = result.impact.priceImpactPct > 0.001
+        ? ` ↑ BTC +${(result.impact.priceImpactPct * 100).toFixed(1)}%`
+        : '';
       return this.addNotification('success',
-        `Bought ${result.btcBought.toLocaleString(undefined, { maximumFractionDigits: 2 })} BTC for $${amountMM.toFixed(1)}M`);
-    } else {
-      return this.addNotification('error', result.reason ?? 'Buy failed');
+        `₿ STACKED ${result.btcBought.toLocaleString(undefined, { maximumFractionDigits: 2 })} BTC for $${amountMM.toFixed(1)}M${pctStr}`);
     }
+    return this.addNotification('error', result.reason ?? 'Buy failed');
   }
 
   sellBTC(btcAmount: number): Notification {
     const price = this.simulator.getCurrentPrice();
     const result = this.model.sellBTC(btcAmount, price);
     if (result.success) {
+      if (Math.abs(result.impact.priceImpactPct) > 0.001) {
+        this.simulator.applyMarketImpact(result.impact.priceImpactPct);
+      }
+      this.lastTradeFlash = 'SELL';
       return this.addNotification('warning',
-        `Sold ${btcAmount.toLocaleString()} BTC for $${result.proceedsMM.toFixed(1)}M ⚠ mNAV impact`);
-    } else {
-      return this.addNotification('error', result.reason ?? 'Sell failed');
+        `📉 SOLD ${btcAmount.toLocaleString()} BTC — stock cratering, sentiment hit!`);
     }
+    return this.addNotification('error', result.reason ?? 'Sell failed');
   }
 
   issueCommonStock(sharesMM: number): Notification {
     const price = this.simulator.getCurrentPrice();
     const result = this.model.issueCommonStock(sharesMM, price);
     if (result.success) {
+      this.lastTradeFlash = 'ATM';
       return this.addNotification('success',
-        `Issued ${sharesMM.toFixed(1)}M shares, raised $${result.proceedsMM.toFixed(1)}M`);
-    } else {
-      return this.addNotification('error', result.reason ?? 'Issuance failed');
+        `📈 ATM: ${sharesMM.toFixed(1)}M shares → $${result.proceedsMM.toFixed(1)}M raised. mNAV compressed.`);
     }
+    return this.addNotification('error', result.reason ?? 'ATM failed');
   }
 
   issuePreferredStock(amountMM: number): Notification {
@@ -190,33 +164,24 @@ export class GameEngine {
     const result = this.model.issuePreferredStock(amountMM, price);
     if (result.success) {
       return this.addNotification('success',
-        `Raised $${amountMM.toFixed(0)}M via preferred stock @ 8% annual dividend`);
-    } else {
-      return this.addNotification('error', result.reason ?? 'Preferred issuance failed');
+        `💎 $${amountMM.toFixed(0)}M preferred issued @ 8% annual div`);
     }
+    return this.addNotification('error', result.reason ?? 'Preferred failed');
   }
 
   payDownDebt(amountMM: number): Notification {
     const result = this.model.payDownDebt(amountMM);
     if (result.success) {
       return this.addNotification('success',
-        `Paid down $${amountMM.toFixed(0)}M convertible debt → stronger balance sheet`);
-    } else {
-      return this.addNotification('error', result.reason ?? 'Debt paydown failed');
+        `✓ $${amountMM.toFixed(0)}M debt cleared → cleaner balance sheet`);
     }
+    return this.addNotification('error', result.reason ?? 'Debt paydown failed');
   }
 
   private addNotification(type: Notification['type'], message: string): Notification {
-    const n: Notification = {
-      id: `n_${Date.now()}_${Math.random()}`,
-      type,
-      message,
-      timestamp: Date.now(),
-    };
+    const n: Notification = { id: `n_${Date.now()}_${Math.random()}`, type, message, timestamp: Date.now() };
     this.notifications.unshift(n);
-    if (this.notifications.length > 8) {
-      this.notifications = this.notifications.slice(0, 8);
-    }
+    if (this.notifications.length > 8) this.notifications = this.notifications.slice(0, 8);
     return n;
   }
 
@@ -233,7 +198,7 @@ export class GameEngine {
     return btcValueMM > 10000 && this.simulator.getCurrentDay() >= this.totalGameDays;
   }
 
-  getWinScore(): { btc: number; btcValueMM: number; mNAV: number; daysSurvived: number } {
+  getWinScore() {
     const balance = this.model.getBalance();
     const price = this.simulator.getCurrentPrice();
     return {

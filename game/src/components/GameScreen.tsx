@@ -5,7 +5,6 @@ import type { TimeSpeed, Notification } from '../engine/gameEngine';
 import { PriceChart } from './PriceChart';
 import { BalancePanel } from './BalancePanel';
 import { ActionPanel } from './ActionPanel';
-import { TimeControls } from './TimeControls';
 import { NotificationFeed } from './NotificationFeed';
 import { GameOverScreen } from './GameOverScreen';
 
@@ -15,44 +14,63 @@ interface Props {
   onExitToConfig: () => void;
 }
 
-function fmtCapital(mm: number): string {
-  if (mm >= 1000) return `$${(mm / 1000).toFixed(mm % 1000 === 0 ? 0 : 1)}B`;
-  return `$${mm}M`;
+function fmtMM(mm: number): string {
+  if (mm >= 1000) return `$${(mm / 1000).toFixed(mm % 1000 === 0 ? 0 : 2)}B`;
+  return `$${mm.toFixed(0)}M`;
 }
+
+function fmtPrice(p: number): string {
+  if (p >= 1e6) return `$${(p / 1e6).toFixed(2)}M`;
+  if (p >= 1000) return `$${(p / 1000).toFixed(2)}K`;
+  return `$${p.toFixed(2)}`;
+}
+
+// Floating ₿ particle component
+function BtcParticle({ x, y, key: _k }: { x: number; y: number; key: string }) {
+  return (
+    <div
+      className="btc-particle"
+      style={{ left: x, top: y }}
+    >
+      ₿
+    </div>
+  );
+}
+
+interface Particle { id: string; x: number; y: number; }
 
 export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
   const { era, startingCapitalMM } = config;
   const engineRef = useRef<GameEngine | null>(null);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const chartAreaRef = useRef<HTMLDivElement>(null);
 
   const [speed, setSpeed] = useState<TimeSpeed>('PAUSED');
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showGameOver, setShowGameOver] = useState(false);
   const [isWin, setIsWin] = useState(false);
   const [renderCount, setRenderCount] = useState(0);
+  const [flashClass, setFlashClass] = useState('');
+  const [particles, setParticles] = useState<Particle[]>([]);
+  const [prevStockPrice, setPrevStockPrice] = useState(0);
+  const [stockPriceClass, setStockPriceClass] = useState('');
 
   const forceUpdate = () => setRenderCount(c => c + 1);
 
   useEffect(() => {
     engineRef.current = new GameEngine(era, config);
-    setRenderCount(c => c + 1);
+    forceUpdate();
   }, [era, config]);
 
   useEffect(() => {
-    if (tickRef.current) {
-      clearInterval(tickRef.current);
-      tickRef.current = null;
-    }
-
+    if (tickRef.current) { clearInterval(tickRef.current); tickRef.current = null; }
     if (speed === 'PAUSED') return;
-
     const cfg = TIME_SPEEDS[speed];
-    if (cfg.daysPerTick === 0) return;
+    if (!cfg.daysPerTick) return;
 
     tickRef.current = setInterval(() => {
       const engine = engineRef.current;
       if (!engine) return;
-
       engine.tickDays(cfg.daysPerTick);
       const state = engine.getState();
 
@@ -63,144 +81,242 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
         setNotifications([...state.notifications]);
         return;
       }
-
       if (engine.checkWin()) {
         setSpeed('PAUSED');
         setShowGameOver(true);
         setIsWin(true);
       }
-
       setNotifications([...state.notifications]);
       setRenderCount(c => c + 1);
     }, cfg.tickMs);
 
-    return () => {
-      if (tickRef.current) clearInterval(tickRef.current);
-    };
+    return () => { if (tickRef.current) clearInterval(tickRef.current); };
   }, [speed]);
 
-  const handleSpeedChange = useCallback((s: TimeSpeed) => {
-    setSpeed(s);
-  }, []);
+  const handleSpeedChange = useCallback((s: TimeSpeed) => setSpeed(s), []);
 
   const engine = engineRef.current;
-  if (!engine) {
-    return (
-      <div className="min-h-screen bg-terminal-bg flex items-center justify-center text-slate-400">
-        Loading...
-      </div>
-    );
-  }
+  if (!engine) return <div className="min-h-screen terminal-bg flex items-center justify-center text-slate-400 text-sm">INITIALIZING...</div>;
 
   void renderCount;
 
   const state = engine.getState();
   const conePoints = engine.getConePoints(120);
   const isHistorical = engine.getSimulator().isInHistorical();
+  const { metrics, balance, currentPrice, currentDate, daysSurvived, totalDays } = state;
+
+  // Stock price change indicator
+  const stockPriceChanged = prevStockPrice > 0 && Math.abs(metrics.stockPrice - prevStockPrice) / prevStockPrice > 0.001;
+  const stockUp = metrics.stockPrice >= prevStockPrice;
+
+  const spawnParticles = (count = 5) => {
+    if (!chartAreaRef.current) return;
+    const rect = chartAreaRef.current.getBoundingClientRect();
+    const newP: Particle[] = Array.from({ length: count }, (_, i) => ({
+      id: `p_${Date.now()}_${i}`,
+      x: Math.random() * rect.width * 0.6 + rect.width * 0.2,
+      y: Math.random() * rect.height * 0.4 + rect.height * 0.3,
+    }));
+    setParticles(prev => [...prev, ...newP]);
+    setTimeout(() => setParticles(prev => prev.filter(p => !newP.find(n => n.id === p.id))), 1400);
+  };
+
+  const syncAndFlash = (flash: 'BUY' | 'SELL' | 'ATM') => {
+    const s = engineRef.current?.getState();
+    if (s) {
+      setNotifications([...s.notifications]);
+      setPrevStockPrice(metrics.stockPrice);
+      if (flash === 'BUY') {
+        setFlashClass('flash-buy');
+        spawnParticles(6);
+      } else if (flash === 'SELL') {
+        setFlashClass('flash-sell');
+        setStockPriceClass('stock-crash');
+        setTimeout(() => setStockPriceClass(''), 700);
+      } else {
+        setFlashClass('flash-atm');
+      }
+      setTimeout(() => setFlashClass(''), 900);
+    }
+    forceUpdate();
+  };
 
   const handleRestart = () => {
     engineRef.current = new GameEngine(era, config);
     setShowGameOver(false);
     setSpeed('PAUSED');
     setNotifications([]);
+    setParticles([]);
     forceUpdate();
   };
 
-  const syncNotifications = () => {
-    const s = engineRef.current?.getState();
-    if (s) setNotifications([...s.notifications]);
-    forceUpdate();
-  };
+  const progress = Math.min((daysSurvived / totalDays) * 100, 100);
+  const SPEEDS: TimeSpeed[] = ['PAUSED', '1D', '1W', '1M'];
 
   return (
-    <div className="min-h-screen bg-terminal-bg flex flex-col" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-      {/* Top bar */}
-      <div className="border-b border-terminal-border px-4 py-2 flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-4">
-          <button
-            className="text-slate-600 hover:text-slate-300 text-xs transition-colors uppercase tracking-wider"
-            onClick={onExitToConfig}
-          >
-            ← CONFIG
-          </button>
-          <button
-            className="text-slate-700 hover:text-slate-400 text-xs transition-colors uppercase tracking-wider"
-            onClick={onExitToMenu}
-          >
-            ERAS
-          </button>
-          <div className="h-4 w-px bg-terminal-border" />
-          <span className="text-bitcoin font-bold text-sm">SAYLOR MODE</span>
-          <span className="text-slate-600 text-xs hidden md:block">
-            started with <span className="text-emerald-400">{fmtCapital(startingCapitalMM)}</span>
-          </span>
-        </div>
-        <div className="flex items-center gap-4 text-xs">
-          <span className="text-slate-600">BTC/USD</span>
-          <span className="text-bitcoin font-bold font-mono text-base">
-            ${state.currentPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-          </span>
-        </div>
-      </div>
+    <div className="min-h-screen terminal-bg flex flex-col" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
 
-      {/* Time controls */}
-      <div className="px-4 py-2 flex-shrink-0">
-        <TimeControls
-          speed={speed}
-          onSpeedChange={handleSpeedChange}
-          currentDate={state.currentDate}
-          daysSurvived={state.daysSurvived}
-          totalDays={state.totalDays}
-          era={era}
-        />
-      </div>
-
-      {/* Main content */}
-      <div className="flex-1 flex min-h-0 overflow-hidden px-4 pb-4 gap-3">
-        {/* Left: Chart + notifications */}
-        <div className="flex-1 flex flex-col gap-3 min-w-0">
-          <div className="game-card flex-1 min-h-0" style={{ minHeight: '320px' }}>
-            <PriceChart
-              priceHistory={state.priceHistory}
-              conePoints={conePoints}
-              currentPrice={state.currentPrice}
-              isHistorical={isHistorical}
-            />
+      {/* ── TOP BAR ── */}
+      <div className="border-b border-[#1a2540] px-4 py-2 flex items-center justify-between flex-shrink-0 bg-[#060a12]">
+        <div className="flex items-center gap-3">
+          <button onClick={onExitToConfig} className="text-[#3a5070] hover:text-slate-300 text-xs transition-colors uppercase tracking-wider">← CONFIG</button>
+          <button onClick={onExitToMenu} className="text-[#2a3a52] hover:text-slate-400 text-xs transition-colors uppercase tracking-wider">ERAS</button>
+          <div className="h-4 w-px bg-[#1a2540]" />
+          <div className="flex items-center gap-2">
+            <span className="text-bitcoin font-bold text-sm glow-text-bitcoin">₿</span>
+            <span className="text-white font-bold text-sm tracking-wider">BITCOIN TREASURY STRATEGY SIMULATOR</span>
           </div>
-          <div className="flex-shrink-0" style={{ maxHeight: '180px', overflowY: 'auto' }}>
+        </div>
+        <div className="flex items-center gap-5 text-xs">
+          <div className="text-[#3a5070] uppercase tracking-wider">Capital: <span className="text-slate-400">{fmtMM(startingCapitalMM)}</span></div>
+          <div className="h-4 w-px bg-[#1a2540]" />
+          <div className="flex items-center gap-2">
+            <span className="text-[#3a5070]">BTC/USD</span>
+            <span className="text-bitcoin font-bold font-mono text-lg glow-text-bitcoin">${currentPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+            <span className="ticker-live text-bitcoin text-xs">●</span>
+          </div>
+          <div className="h-4 w-px bg-[#1a2540]" />
+          <span className="text-[#3a5070] font-mono">{currentDate}</span>
+        </div>
+      </div>
+
+      {/* ── STOCK PRICE HERO BAND ── */}
+      <div className="border-b border-[#F7931A33] bg-gradient-to-r from-[#0f1a0a] via-[#0a1218] to-[#0f1a0a] px-6 py-3 flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-8">
+          {/* THE goal metric */}
+          <div>
+            <div className="section-label mb-1 text-[#F7931A88]">▶ STOCK PRICE — PRIMARY OBJECTIVE</div>
+            <div className="flex items-baseline gap-3">
+              <span className={`stock-price-hero ${stockPriceClass}`}>
+                {fmtPrice(metrics.stockPrice)}
+              </span>
+              {stockPriceChanged && (
+                <span className={`text-sm font-bold ${stockUp ? 'price-up glow-text-green' : 'price-down glow-text-red'}`}>
+                  {stockUp ? '▲' : '▼'} {Math.abs(((metrics.stockPrice - prevStockPrice) / prevStockPrice) * 100).toFixed(2)}%
+                </span>
+              )}
+            </div>
+            <div className="text-[#3a5070] text-xs mt-0.5">per share · maximize this to win</div>
+          </div>
+
+          <div className="h-14 w-px bg-[#1a2540]" />
+
+          {/* mNAV */}
+          <div>
+            <div className="section-label mb-1">mNAV</div>
+            <div className="text-2xl font-bold font-mono" style={{ color: metrics.mNAV >= 2 ? '#22c55e' : metrics.mNAV >= 1 ? '#f59e0b' : '#ef4444' }}>
+              {metrics.mNAV.toFixed(2)}x
+            </div>
+            <div className="text-[#3a5070] text-xs">{metrics.mNAVStatus.replace('_', ' ')}</div>
+          </div>
+
+          <div className="h-14 w-px bg-[#1a2540]" />
+
+          {/* BTC Value */}
+          <div>
+            <div className="section-label mb-1">₿ TREASURY</div>
+            <div className="text-2xl font-bold font-mono text-bitcoin">
+              {balance.btcHeld >= 1000 ? `${(balance.btcHeld / 1000).toFixed(1)}K` : balance.btcHeld.toLocaleString(undefined, { maximumFractionDigits: 0 })} ₿
+            </div>
+            <div className="text-[#3a5070] text-xs">{fmtMM(metrics.btcValueMM)} value</div>
+          </div>
+
+          <div className="h-14 w-px bg-[#1a2540]" />
+
+          {/* Sentiment */}
+          <div style={{ minWidth: 140 }}>
+            <div className="section-label mb-1">MARKET SENTIMENT</div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-lg font-bold" style={{ color: metrics.sentimentColor }}>{metrics.sentimentLabel}</span>
+              <span className="text-sm font-mono text-slate-500">{metrics.sentiment.toFixed(0)}/100</span>
+            </div>
+            <div className="w-full bg-[#0f1629] rounded-full h-1.5">
+              <div className="sentiment-bar" style={{ width: `${metrics.sentiment}%`, background: metrics.sentimentColor }} />
+            </div>
+          </div>
+        </div>
+
+        {/* Time controls (right side of hero band) */}
+        <div className="flex items-center gap-3">
+          <div className="text-right mr-2">
+            <div className="section-label">PROGRESS</div>
+            <div className="text-xs text-slate-500 font-mono mt-0.5">Day {daysSurvived} / {totalDays}</div>
+            <div className="w-32 bg-[#0f1629] rounded-full h-1 mt-1">
+              <div className="h-1 rounded-full" style={{ width: `${progress}%`, background: 'linear-gradient(90deg, #F7931A88, #F7931A)' }} />
+            </div>
+          </div>
+          {SPEEDS.map(s => {
+            const cfg = TIME_SPEEDS[s];
+            const isActive = speed === s;
+            return (
+              <button key={s} onClick={() => handleSpeedChange(s)}
+                className="px-3 py-1.5 text-xs font-bold rounded uppercase tracking-wider transition-all"
+                style={{
+                  background: isActive ? (s === 'PAUSED' ? '#1e3a5f' : '#F7931A22') : '#0a0f1e',
+                  color: isActive ? (s === 'PAUSED' ? '#60a5fa' : '#F7931A') : '#3a5070',
+                  border: `1px solid ${isActive ? (s === 'PAUSED' ? '#1e3a8a' : '#F7931A66') : '#1a2540'}`,
+                }}
+              >
+                {s === 'PAUSED' ? '⏸' : cfg.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── MAIN CONTENT ── */}
+      <div className="flex-1 flex min-h-0 overflow-hidden px-3 pb-3 pt-2 gap-2">
+
+        {/* Left: Chart + Notifications */}
+        <div className="flex-1 flex flex-col gap-2 min-w-0">
+          <div ref={chartAreaRef} className={`game-card flex-1 min-h-0 relative overflow-hidden ${flashClass}`} style={{ minHeight: 300 }}>
+            {/* Bitcoin watermark */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 opacity-[0.025]">
+              <span style={{ fontSize: '18rem', color: '#F7931A', fontFamily: 'monospace', lineHeight: 1 }}>₿</span>
+            </div>
+            <div className="relative z-10 w-full h-full">
+              <PriceChart
+                priceHistory={state.priceHistory}
+                conePoints={conePoints}
+                currentPrice={currentPrice}
+                isHistorical={isHistorical}
+              />
+            </div>
+            {/* Floating particles */}
+            {particles.map(p => <BtcParticle key={p.id} x={p.x} y={p.y} />)}
+          </div>
+
+          <div style={{ maxHeight: 160, overflowY: 'auto' }}>
             <NotificationFeed notifications={notifications} />
           </div>
         </div>
 
         {/* Center: Actions */}
-        <div className="flex-shrink-0" style={{ width: '320px' }}>
+        <div className="flex-shrink-0" style={{ width: 310 }}>
           <ActionPanel
-            balance={state.balance}
-            metrics={state.metrics}
-            onBuyBTC={(amt) => { engine.buyBTC(amt); syncNotifications(); }}
-            onSellBTC={(amt) => { engine.sellBTC(amt); syncNotifications(); }}
-            onIssueCommon={(shares) => { engine.issueCommonStock(shares); syncNotifications(); }}
-            onIssuePreferred={(amt) => { engine.issuePreferredStock(amt); syncNotifications(); }}
-            onPayDebt={(amt) => { engine.payDownDebt(amt); syncNotifications(); }}
+            balance={balance}
+            metrics={metrics}
+            onBuyBTC={(amt) => { engine.buyBTC(amt); syncAndFlash('BUY'); }}
+            onSellBTC={(amt) => { engine.sellBTC(amt); syncAndFlash('SELL'); }}
+            onIssueCommon={(shares) => { engine.issueCommonStock(shares); syncAndFlash('ATM'); }}
+            onIssuePreferred={(amt) => { engine.issuePreferredStock(amt); syncAndFlash('ATM'); }}
+            onPayDebt={(amt) => { engine.payDownDebt(amt); syncAndFlash('ATM'); }}
           />
         </div>
 
         {/* Right: Balance sheet */}
-        <div className="flex-shrink-0 overflow-y-auto" style={{ width: '280px' }}>
-          <BalancePanel
-            balance={state.balance}
-            metrics={state.metrics}
-          />
+        <div className="flex-shrink-0 overflow-y-auto" style={{ width: 270 }}>
+          <BalancePanel balance={balance} metrics={metrics} era={era} />
         </div>
       </div>
 
       {showGameOver && (
         <GameOverScreen
           isWin={isWin}
-          metrics={state.metrics}
-          balance={state.balance}
+          metrics={metrics}
+          balance={balance}
           era={era}
-          daysSurvived={state.daysSurvived}
+          daysSurvived={daysSurvived}
           onRestart={handleRestart}
           onChangeEra={onExitToMenu}
         />

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { GameMetrics, BalanceSheet } from '../engine/financialModel';
 
-type ActionTab = 'BUY_BTC' | 'ISSUE_STOCK' | 'PREFERRED' | 'DEBT';
+type ActionTab = 'BUY_BTC' | 'ATM' | 'PREFERRED' | 'DEBT';
 
 interface Props {
   balance: BalanceSheet;
@@ -13,282 +13,282 @@ interface Props {
   onPayDebt: (amountMM: number) => void;
 }
 
-function QuickAmount({ label, onClick }: { label: string; onClick: () => void }) {
+function Quick({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
-      className="text-xs px-2 py-1 rounded border border-terminal-border text-slate-400 hover:border-bitcoin hover:text-bitcoin transition-colors"
+      className="text-xs px-2 py-1 rounded border border-[#1a2540] text-[#3a5070] hover:border-bitcoin hover:text-bitcoin transition-colors font-mono"
       onClick={onClick}
-    >
-      {label}
-    </button>
+    >{label}</button>
   );
 }
 
-export function ActionPanel({
-  balance, metrics, onBuyBTC, onSellBTC, onIssueCommon, onIssuePreferred, onPayDebt
-}: Props) {
+export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueCommon, onIssuePreferred, onPayDebt }: Props) {
   const [tab, setTab] = useState<ActionTab>('BUY_BTC');
-  const [buyAmount, setBuyAmount] = useState('');
-  const [sellBTC, setSellBTC] = useState('');
-  const [shareAmount, setShareAmount] = useState('');
-  const [prefAmount, setPrefAmount] = useState('');
-  const [debtAmount, setDebtAmount] = useState('');
+  const [buyAmt, setBuyAmt] = useState('');
+  const [sellAmt, setSellAmt] = useState('');
+  const [shareAmt, setShareAmt] = useState('');
+  const [prefAmt, setPrefAmt] = useState('');
+  const [debtAmt, setDebtAmt] = useState('');
 
-  const tabs: { id: ActionTab; label: string; color: string }[] = [
-    { id: 'BUY_BTC', label: '₿ BUY BTC', color: '#F7931A' },
-    { id: 'ISSUE_STOCK', label: '📈 COMMON', color: '#22c55e' },
-    { id: 'PREFERRED', label: '💎 PREFERRED', color: '#a855f7' },
-    { id: 'DEBT', label: '📉 PAY DEBT', color: '#ef4444' },
+  const TABS: { id: ActionTab; label: string; color: string }[] = [
+    { id: 'BUY_BTC',   label: '₿ STACK',   color: '#F7931A' },
+    { id: 'ATM',       label: '📈 ATM',     color: '#22c55e' },
+    { id: 'PREFERRED', label: '💎 PREF',    color: '#a855f7' },
+    { id: 'DEBT',      label: '🔓 DEBT',    color: '#ef4444' },
   ];
+
+  const atmOverheated = metrics.atmCooldown >= 75;
 
   return (
     <div className="game-card h-full flex flex-col">
       {/* Tab bar */}
-      <div className="flex border-b border-terminal-border">
-        {tabs.map(t => (
-          <button
-            key={t.id}
+      <div className="flex border-b border-[#1a2540]">
+        {TABS.map(t => (
+          <button key={t.id}
             className="flex-1 py-2 text-xs font-bold uppercase tracking-wider transition-all"
             style={{
-              color: tab === t.id ? t.color : '#475569',
+              color: tab === t.id ? t.color : '#3a5070',
               borderBottom: tab === t.id ? `2px solid ${t.color}` : '2px solid transparent',
               background: tab === t.id ? `${t.color}11` : 'transparent',
             }}
             onClick={() => setTab(t.id)}
-          >
-            {t.label}
-          </button>
+          >{t.label}</button>
         ))}
       </div>
 
-      <div className="flex-1 p-4 overflow-y-auto">
-        {/* BUY BTC TAB */}
+      <div className="flex-1 p-3 overflow-y-auto space-y-3">
+
+        {/* ── STACK SATS ── */}
         {tab === 'BUY_BTC' && (
-          <div className="space-y-4">
-            <div>
-              <div className="text-slate-400 text-xs mb-1 uppercase tracking-wider">Buy Bitcoin with Cash</div>
-              <div className="text-slate-600 text-xs mb-3">
-                Available: <span className="text-emerald-400 font-mono">${balance.cashMM.toFixed(1)}M</span>
+          <>
+            <div className="card-bitcoin p-3 rounded">
+              <div className="text-[#F7931A] text-xs font-bold uppercase tracking-wider mb-1">₿ ACQUIRE BITCOIN</div>
+              <div className="text-[#3a5070] text-xs mb-2">
+                Cash: <span className="text-emerald-400 font-mono">${balance.cashMM.toFixed(1)}M</span>
+                <span className="text-[#2a3a52] mx-2">·</span>
+                Price: <span className="text-white font-mono">${metrics.btcPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
               </div>
-              <div className="flex gap-2 flex-wrap mb-2">
+              <div className="flex flex-wrap gap-1 mb-2">
                 {[10, 50, 100, 250, 500].map(v => (
-                  <QuickAmount key={v} label={`$${v}M`} onClick={() => setBuyAmount(String(v))} />
+                  <Quick key={v} label={`$${v}M`} onClick={() => setBuyAmt(String(v))} />
                 ))}
-                <QuickAmount
-                  label="ALL IN"
-                  onClick={() => setBuyAmount(((balance.cashMM * 0.95)).toFixed(0))}
-                />
+                <Quick label="MAX" onClick={() => setBuyAmt((balance.cashMM * 0.95).toFixed(0))} />
               </div>
               <div className="flex gap-2">
                 <input
-                  className="flex-1 bg-terminal-muted border border-terminal-border rounded px-3 py-2 text-sm font-mono text-white focus:border-bitcoin focus:outline-none"
-                  placeholder="Amount in $M"
+                  className="flex-1 bg-[#060a12] border border-[#1a2540] rounded px-3 py-2 text-sm font-mono text-white focus:border-bitcoin focus:outline-none"
+                  placeholder="$M to spend"
                   type="number"
-                  value={buyAmount}
-                  onChange={e => setBuyAmount(e.target.value)}
+                  value={buyAmt}
+                  onChange={e => setBuyAmt(e.target.value)}
                 />
-                <button
-                  className="btn-bitcoin"
-                  disabled={!buyAmount || parseFloat(buyAmount) <= 0}
-                  onClick={() => { onBuyBTC(parseFloat(buyAmount)); setBuyAmount(''); }}
-                >
-                  BUY
+                <button className="btn-bitcoin px-4"
+                  disabled={!buyAmt || parseFloat(buyAmt) <= 0}
+                  onClick={() => { onBuyBTC(parseFloat(buyAmt)); setBuyAmt(''); }}>
+                  STACK
                 </button>
               </div>
-              {buyAmount && parseFloat(buyAmount) > 0 && (
-                <div className="text-xs text-slate-500 mt-1 font-mono">
-                  ≈ {((parseFloat(buyAmount) * 1e6) / metrics.btcPrice).toLocaleString(undefined, { maximumFractionDigits: 2 })} BTC at ${metrics.btcPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              {buyAmt && parseFloat(buyAmt) > 0 && (
+                <div className="text-xs text-[#3a5070] mt-1 font-mono">
+                  ≈ {((parseFloat(buyAmt) * 1e6) / metrics.btcPrice).toLocaleString(undefined, { maximumFractionDigits: 1 })} BTC
+                  {parseFloat(buyAmt) >= 100 && <span className="text-bitcoin ml-2">↑ large buy moves market!</span>}
                 </div>
               )}
             </div>
 
-            <div className="border-t border-terminal-border pt-4">
-              <div className="text-slate-400 text-xs mb-1 uppercase tracking-wider text-red-400">⚠ Sell Bitcoin</div>
-              <div className="text-slate-600 text-xs mb-3">
-                Held: <span className="text-bitcoin font-mono">{balance.btcHeld.toLocaleString(undefined, { maximumFractionDigits: 0 })} BTC</span>
-                <span className="text-red-400 ml-2">(hurts mNAV)</span>
+            <div className="p-3 rounded border border-red-900/40 bg-red-950/20">
+              <div className="text-red-400 text-xs font-bold uppercase tracking-wider mb-1">⚠ SELL BTC — TANKS STOCK</div>
+              <div className="text-[#3a5070] text-xs mb-2">
+                Held: <span className="text-bitcoin font-mono">{balance.btcHeld.toLocaleString(undefined, { maximumFractionDigits: 0 })} ₿</span>
               </div>
               <div className="flex gap-2">
                 <input
-                  className="flex-1 bg-terminal-muted border border-terminal-border rounded px-3 py-2 text-sm font-mono text-white focus:border-red-400 focus:outline-none"
-                  placeholder="BTC amount"
+                  className="flex-1 bg-[#060a12] border border-red-900/50 rounded px-3 py-2 text-sm font-mono text-white focus:border-red-400 focus:outline-none"
+                  placeholder="BTC to sell"
                   type="number"
-                  value={sellBTC}
-                  onChange={e => setSellBTC(e.target.value)}
+                  value={sellAmt}
+                  onChange={e => setSellAmt(e.target.value)}
                 />
-                <button
-                  className="btn-red"
-                  disabled={!sellBTC || parseFloat(sellBTC) <= 0}
-                  onClick={() => { onSellBTC(parseFloat(sellBTC)); setSellBTC(''); }}
-                >
-                  SELL
+                <button className="btn-red px-4"
+                  disabled={!sellAmt || parseFloat(sellAmt) <= 0}
+                  onClick={() => { onSellBTC(parseFloat(sellAmt)); setSellAmt(''); }}>
+                  DUMP
                 </button>
               </div>
-              {sellBTC && parseFloat(sellBTC) > 0 && (
-                <div className="text-xs text-slate-500 mt-1 font-mono">
-                  ≈ ${((parseFloat(sellBTC) * metrics.btcPrice) / 1e6).toFixed(1)}M proceeds
+              {sellAmt && parseFloat(sellAmt) > 0 && (
+                <div className="text-xs text-red-500 mt-1 font-mono">
+                  ≈ ${((parseFloat(sellAmt) * metrics.btcPrice) / 1e6).toFixed(1)}M proceeds · stock price will crater!
                 </div>
               )}
             </div>
-          </div>
+          </>
         )}
 
-        {/* ISSUE COMMON STOCK TAB */}
-        {tab === 'ISSUE_STOCK' && (
-          <div className="space-y-4">
-            <div>
-              <div className="text-slate-400 text-xs mb-2 uppercase tracking-wider">Issue Common Shares (ATM)</div>
+        {/* ── SMASH THE ATM ── */}
+        {tab === 'ATM' && (
+          <>
+            <div className="p-3 rounded border bg-[#060a12]"
+              style={{ borderColor: atmOverheated ? '#ef444455' : '#1a2540' }}>
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-emerald-400 text-xs font-bold uppercase tracking-wider">📈 ISSUE COMMON STOCK</div>
+                {atmOverheated && (
+                  <span className="text-xs text-red-400 font-bold animate-pulse">⚠ OVERHEATING</span>
+                )}
+              </div>
 
-              {/* mNAV guidance */}
-              <div className={`rounded p-3 text-xs mb-3 ${
+              {/* mNAV signal */}
+              <div className={`rounded p-2 text-xs mb-3 border ${
                 metrics.mNAVStatus === 'HIGH_PREMIUM' || metrics.mNAVStatus === 'EXTREME_PREMIUM'
-                  ? 'bg-emerald-900/30 border border-emerald-800 text-emerald-400'
+                  ? 'bg-emerald-950/40 border-emerald-800/50 text-emerald-300'
                   : metrics.mNAVStatus === 'DISCOUNT' || metrics.mNAVStatus === 'DEEP_DISCOUNT'
-                  ? 'bg-red-900/30 border border-red-800 text-red-400'
-                  : 'bg-yellow-900/20 border border-yellow-800 text-yellow-400'
+                  ? 'bg-red-950/40 border-red-800/50 text-red-400'
+                  : 'bg-yellow-950/30 border-yellow-800/40 text-yellow-400'
               }`}>
-                <div className="font-bold mb-1">mNAV: {metrics.mNAV.toFixed(2)}x</div>
-                {metrics.mNAV >= 2.0
-                  ? `Premium: You sell shares at $${metrics.stockPrice.toFixed(0)}/sh, backed by $${metrics.navPerShare.toFixed(0)} NAV. Market pays the premium — use this!`
+                <span className="font-bold">mNAV {metrics.mNAV.toFixed(2)}x · </span>
+                {metrics.mNAV >= 1.8
+                  ? `PREMIUM — sell ${metrics.mNAV.toFixed(1)}x your NAV and buy more BTC`
                   : metrics.mNAV < 1.0
-                  ? `Discount: Issuing here means selling $${metrics.navPerShare.toFixed(0)} of assets for $${metrics.stockPrice.toFixed(0)}. Destroys value.`
-                  : `Fair value zone — issuance is roughly neutral to NAV per share.`}
+                  ? `DISCOUNT — issuing here DESTROYS stock price`
+                  : `Fair value zone — neutral issuance`}
               </div>
 
-              <div className="text-slate-600 text-xs mb-2">
-                Price: <span className="text-white font-mono">${metrics.stockPrice.toFixed(2)}</span>
-                {' | '}Shares: <span className="text-white font-mono">{balance.sharesOutstanding.toFixed(1)}M</span>
-              </div>
-
-              <div className="flex gap-2 flex-wrap mb-2">
-                {[1, 5, 10, 20, 50].map(v => (
-                  <QuickAmount key={v} label={`${v}M sh`} onClick={() => setShareAmount(String(v))} />
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <input
-                  className="flex-1 bg-terminal-muted border border-terminal-border rounded px-3 py-2 text-sm font-mono text-white focus:border-emerald-400 focus:outline-none"
-                  placeholder="Shares (millions)"
-                  type="number"
-                  value={shareAmount}
-                  onChange={e => setShareAmount(e.target.value)}
-                />
-                <button
-                  className="btn-green"
-                  disabled={!shareAmount || parseFloat(shareAmount) <= 0}
-                  onClick={() => { onIssueCommon(parseFloat(shareAmount)); setShareAmount(''); }}
-                >
-                  ISSUE
-                </button>
-              </div>
-              {shareAmount && parseFloat(shareAmount) > 0 && (
-                <div className="text-xs text-slate-500 mt-1 font-mono">
-                  Raises ≈ ${(parseFloat(shareAmount) * metrics.stockPrice).toFixed(1)}M
-                  {' | '}Dilution: {((parseFloat(shareAmount) / (balance.sharesOutstanding + parseFloat(shareAmount))) * 100).toFixed(1)}%
+              {/* ATM cooldown bar */}
+              <div className="mb-3">
+                <div className="flex justify-between text-xs text-[#3a5070] mb-1">
+                  <span>ATM HEAT</span>
+                  <span style={{ color: metrics.atmCooldown > 50 ? '#ef4444' : '#22c55e' }}>
+                    {metrics.atmCooldown < 25 ? 'COOL — FIRE!' : metrics.atmCooldown < 50 ? 'WARM' : metrics.atmCooldown < 75 ? 'HOT' : 'OVERHEATED — BACK OFF!'}
+                  </span>
                 </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* PREFERRED STOCK TAB */}
-        {tab === 'PREFERRED' && (
-          <div className="space-y-4">
-            <div>
-              <div className="text-slate-400 text-xs mb-2 uppercase tracking-wider">Issue Fixed-Dividend Preferred</div>
-              <div className="rounded p-3 text-xs mb-3 bg-purple-900/20 border border-purple-800 text-purple-300">
-                <div className="font-bold mb-1">STRK-Style Preferred @ 8% Annual</div>
-                <p>Each $100M raised costs $8M/year forever. High leverage — powerful when BTC rises, catastrophic in a crash if you can't cover divs.</p>
-              </div>
-
-              {balance.preferredFaceValueMM > 0 && (
-                <div className="text-xs text-slate-500 mb-3">
-                  Current preferred: <span className="text-yellow-400 font-mono">${balance.preferredFaceValueMM.toFixed(0)}M</span>
-                  {' → '}div cost: <span className="text-red-400 font-mono">${(balance.preferredFaceValueMM * 0.08 / 4).toFixed(1)}M/qtr</span>
-                </div>
-              )}
-
-              <div className="flex gap-2 flex-wrap mb-2">
-                {[50, 100, 200, 500].map(v => (
-                  <QuickAmount key={v} label={`$${v}M`} onClick={() => setPrefAmount(String(v))} />
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <input
-                  className="flex-1 bg-terminal-muted border border-terminal-border rounded px-3 py-2 text-sm font-mono text-white focus:border-purple-400 focus:outline-none"
-                  placeholder="Raise amount $M"
-                  type="number"
-                  value={prefAmount}
-                  onChange={e => setPrefAmount(e.target.value)}
-                />
-                <button
-                  className="px-4 py-2 text-xs font-bold uppercase rounded"
-                  style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', color: '#fff', border: 'none', cursor: 'pointer' }}
-                  disabled={!prefAmount || parseFloat(prefAmount) <= 0}
-                  onClick={() => { onIssuePreferred(parseFloat(prefAmount)); setPrefAmount(''); }}
-                >
-                  ISSUE
-                </button>
-              </div>
-              {prefAmount && parseFloat(prefAmount) > 0 && (
-                <div className="text-xs text-red-400 mt-1 font-mono">
-                  Adds ${(parseFloat(prefAmount) * 0.08 / 4).toFixed(1)}M/quarter in fixed dividends
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* PAY DOWN DEBT TAB */}
-        {tab === 'DEBT' && (
-          <div className="space-y-4">
-            <div>
-              <div className="text-slate-400 text-xs mb-2 uppercase tracking-wider">Pay Down Convertible Debt</div>
-              <div className="rounded p-3 text-xs mb-3 bg-red-900/20 border border-red-800 text-red-300">
-                <div className="font-bold mb-1">Convertible Notes @ 6% Annual</div>
-                <p>Paying down debt reduces interest expense, improves NAV, and boosts mNAV. Use excess cash when BTC is expensive to accumulate.</p>
-              </div>
-
-              <div className="text-xs text-slate-500 mb-3">
-                Outstanding: <span className="text-red-400 font-mono">${balance.convertibleDebtMM.toFixed(0)}M</span>
-                {' | '}Cash: <span className="text-emerald-400 font-mono">${balance.cashMM.toFixed(1)}M</span>
-              </div>
-
-              <div className="flex gap-2 flex-wrap mb-2">
-                {[50, 100, 250, 500].map(v => (
-                  <QuickAmount
-                    key={v}
-                    label={`$${v}M`}
-                    onClick={() => setDebtAmount(String(Math.min(v, balance.convertibleDebtMM)))}
+                <div className="w-full bg-[#0a0f1e] rounded-full h-2">
+                  <div className="h-2 rounded-full transition-all duration-500"
+                    style={{
+                      width: `${metrics.atmCooldown}%`,
+                      background: metrics.atmCooldown < 50
+                        ? 'linear-gradient(90deg, #22c55e, #16a34a)'
+                        : metrics.atmCooldown < 75
+                        ? 'linear-gradient(90deg, #f59e0b, #d97706)'
+                        : 'linear-gradient(90deg, #ef4444, #dc2626)',
+                    }}
                   />
+                </div>
+                <div className="text-xs text-[#2a3a52] mt-1">Repeated issuance hurts sentiment & depresses stock</div>
+              </div>
+
+              <div className="text-[#3a5070] text-xs mb-2">
+                Price: <span className="text-white font-mono">${metrics.stockPrice.toFixed(2)}</span>
+                <span className="mx-2">·</span>
+                Out: <span className="text-white font-mono">{balance.sharesOutstanding.toFixed(1)}M sh</span>
+              </div>
+              <div className="flex flex-wrap gap-1 mb-2">
+                {[1, 5, 10, 20].map(v => (
+                  <Quick key={v} label={`${v}M sh`} onClick={() => setShareAmt(String(v))} />
                 ))}
-                <QuickAmount
-                  label="PAY ALL"
-                  onClick={() => setDebtAmount(Math.min(balance.convertibleDebtMM, balance.cashMM * 0.9).toFixed(0))}
-                />
               </div>
               <div className="flex gap-2">
                 <input
-                  className="flex-1 bg-terminal-muted border border-terminal-border rounded px-3 py-2 text-sm font-mono text-white focus:border-red-400 focus:outline-none"
-                  placeholder="Amount $M"
+                  className="flex-1 bg-[#060a12] border border-[#1a2540] rounded px-3 py-2 text-sm font-mono text-white focus:border-emerald-400 focus:outline-none"
+                  placeholder="Millions of shares"
                   type="number"
-                  value={debtAmount}
-                  onChange={e => setDebtAmount(e.target.value)}
+                  value={shareAmt}
+                  onChange={e => setShareAmt(e.target.value)}
                 />
-                <button
-                  className="btn-red"
-                  disabled={!debtAmount || parseFloat(debtAmount) <= 0 || balance.convertibleDebtMM <= 0}
-                  onClick={() => { onPayDebt(parseFloat(debtAmount)); setDebtAmount(''); }}
-                >
-                  PAY
+                <button className="btn-smash" style={{ width: 'auto', padding: '8px 16px', fontSize: '0.7rem' }}
+                  disabled={!shareAmt || parseFloat(shareAmt) <= 0}
+                  onClick={() => { onIssueCommon(parseFloat(shareAmt)); setShareAmt(''); }}>
+                  SMASH ATM
                 </button>
               </div>
-              {debtAmount && parseFloat(debtAmount) > 0 && (
-                <div className="text-xs text-emerald-400 mt-1 font-mono">
-                  Saves ${(parseFloat(debtAmount) * 0.06 / 4).toFixed(2)}M/quarter in interest
+              {shareAmt && parseFloat(shareAmt) > 0 && (
+                <div className="text-xs text-[#3a5070] mt-1 font-mono">
+                  Raises ≈ ${(parseFloat(shareAmt) * metrics.stockPrice).toFixed(1)}M
+                  · dilution {((parseFloat(shareAmt) / (balance.sharesOutstanding + parseFloat(shareAmt))) * 100).toFixed(1)}%
                 </div>
               )}
             </div>
+          </>
+        )}
+
+        {/* ── PREFERRED ── */}
+        {tab === 'PREFERRED' && (
+          <div className="p-3 rounded border border-purple-900/40 bg-purple-950/10">
+            <div className="text-purple-400 text-xs font-bold uppercase tracking-wider mb-2">💎 STRK-STYLE PREFERRED @ 8%/yr</div>
+            <div className="rounded p-2 text-xs mb-3 bg-purple-950/30 border border-purple-800/30 text-purple-300">
+              Powerful leverage. Each $100M raised = $8M/yr in fixed dividends forever.
+              <span className="text-red-400"> Paid monthly.</span> Catastrophic in a bear market if BTC dumps.
+            </div>
+            {balance.preferredFaceValueMM > 0 && (
+              <div className="text-xs text-[#3a5070] mb-3 font-mono">
+                Stack: <span className="text-yellow-400">${balance.preferredFaceValueMM.toFixed(0)}M</span>
+                {' → '}monthly div: <span className="text-red-400">${(balance.preferredFaceValueMM * 0.08 / 12).toFixed(1)}M</span>
+              </div>
+            )}
+            <div className="flex flex-wrap gap-1 mb-2">
+              {[50, 100, 200, 500].map(v => (
+                <Quick key={v} label={`$${v}M`} onClick={() => setPrefAmt(String(v))} />
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input
+                className="flex-1 bg-[#060a12] border border-purple-900/50 rounded px-3 py-2 text-sm font-mono text-white focus:border-purple-400 focus:outline-none"
+                placeholder="Raise $M"
+                type="number"
+                value={prefAmt}
+                onChange={e => setPrefAmt(e.target.value)}
+              />
+              <button
+                className="px-4 py-2 text-xs font-bold uppercase rounded transition-all hover:brightness-110"
+                style={{ background: 'linear-gradient(135deg,#7c3aed,#6d28d9)', color: '#fff', border: 'none', cursor: 'pointer' }}
+                disabled={!prefAmt || parseFloat(prefAmt) <= 0}
+                onClick={() => { onIssuePreferred(parseFloat(prefAmt)); setPrefAmt(''); }}>
+                ISSUE
+              </button>
+            </div>
+            {prefAmt && parseFloat(prefAmt) > 0 && (
+              <div className="text-xs text-red-400 mt-1 font-mono">
+                Adds ${(parseFloat(prefAmt) * 0.08 / 12).toFixed(1)}M/month in fixed dividends
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── PAY DEBT ── */}
+        {tab === 'DEBT' && (
+          <div className="p-3 rounded border border-red-900/30 bg-red-950/10">
+            <div className="text-red-400 text-xs font-bold uppercase tracking-wider mb-2">🔓 RETIRE CONVERTIBLE DEBT</div>
+            <div className="rounded p-2 text-xs mb-3 bg-red-950/20 border border-red-800/30 text-red-300">
+              6% annual interest. Paying down cleans the balance sheet, boosts NAV, and lifts mNAV. Use when BTC is expensive.
+            </div>
+            <div className="text-xs text-[#3a5070] mb-3 font-mono">
+              Debt: <span className="text-red-400">${balance.convertibleDebtMM.toFixed(0)}M</span>
+              <span className="mx-2">·</span>
+              Cash: <span className="text-emerald-400">${balance.cashMM.toFixed(1)}M</span>
+            </div>
+            <div className="flex flex-wrap gap-1 mb-2">
+              {[50, 100, 250, 500].map(v => (
+                <Quick key={v} label={`$${v}M`} onClick={() => setDebtAmt(String(Math.min(v, balance.convertibleDebtMM)))} />
+              ))}
+              <Quick label="ALL" onClick={() => setDebtAmt(Math.min(balance.convertibleDebtMM, balance.cashMM * 0.9).toFixed(0))} />
+            </div>
+            <div className="flex gap-2">
+              <input
+                className="flex-1 bg-[#060a12] border border-red-900/40 rounded px-3 py-2 text-sm font-mono text-white focus:border-red-400 focus:outline-none"
+                placeholder="Amount $M"
+                type="number"
+                value={debtAmt}
+                onChange={e => setDebtAmt(e.target.value)}
+              />
+              <button className="btn-red px-4"
+                disabled={!debtAmt || parseFloat(debtAmt) <= 0 || balance.convertibleDebtMM <= 0}
+                onClick={() => { onPayDebt(parseFloat(debtAmt)); setDebtAmt(''); }}>
+                RETIRE
+              </button>
+            </div>
+            {debtAmt && parseFloat(debtAmt) > 0 && (
+              <div className="text-xs text-emerald-400 mt-1 font-mono">
+                Saves ${(parseFloat(debtAmt) * 0.06 / 12).toFixed(2)}M/month in interest
+              </div>
+            )}
           </div>
         )}
       </div>
