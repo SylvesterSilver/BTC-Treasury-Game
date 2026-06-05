@@ -67,7 +67,7 @@ export function ConfigScreen({ era, onStart, onBack }: Props) {
           <p className="text-[#3a5070] text-xs mb-5">How much dry powder do you bring to the treasury?</p>
 
           {/* Presets */}
-          <div className="grid grid-cols-3 gap-2 mb-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4">
             {CAPITAL_PRESETS.map(preset => {
               const isSelected = !customActive && selectedPreset === preset.value;
               return (
@@ -169,8 +169,35 @@ export function ConfigScreen({ era, onStart, onBack }: Props) {
             </div>
           )}
 
-          <button className="btn-bitcoin w-full py-3 text-sm" disabled={!isValid} onClick={() => isValid && onStart({ era, startingCapitalMM: effectiveCapital })}>
-            {isValid ? `▶ LAUNCH WITH ${fmt(effectiveCapital)} — ${era.name}` : 'Enter a valid capital amount'}
+          {/* BIG GLOWING PLAY BUTTON */}
+          <button
+            disabled={!isValid}
+            onClick={() => isValid && onStart({ era, startingCapitalMM: effectiveCapital })}
+            className={`w-full relative overflow-hidden rounded-lg transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed ${isValid ? "play-btn-pulse" : ""}`}
+            style={{
+              padding: '20px 24px',
+              background: isValid ? 'linear-gradient(135deg, #F7931A, #e07800)' : '#1a2540',
+              boxShadow: isValid ? '0 0 40px rgba(247,147,26,0.5), 0 0 80px rgba(247,147,26,0.2), inset 0 1px 0 rgba(255,255,255,0.15)' : 'none',
+              border: isValid ? '1px solid rgba(247,147,26,0.8)' : '1px solid #2a3a52',
+            }}
+          >
+            <div className="relative z-10 flex items-center justify-center gap-4">
+              <span className="text-3xl font-bold" style={{ color: isValid ? '#000' : '#3a5070' }}>₿</span>
+              <div className="text-left">
+                <div className="font-bold tracking-widest uppercase" style={{ color: isValid ? '#000' : '#3a5070', fontSize: '1.1rem', letterSpacing: '0.12em' }}>
+                  {isValid ? '▶  LAUNCH SIMULATOR' : 'SELECT CAPITAL AMOUNT'}
+                </div>
+                {isValid && (
+                  <div className="text-xs font-mono mt-0.5" style={{ color: 'rgba(0,0,0,0.6)' }}>
+                    {fmt(effectiveCapital)} starting capital · {era.name}
+                  </div>
+                )}
+              </div>
+              <span className="text-3xl font-bold" style={{ color: isValid ? '#000' : '#3a5070' }}>₿</span>
+            </div>
+            {isValid && (
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-0 hover:opacity-10 transition-opacity duration-300" />
+            )}
           </button>
         </div>
       </div>

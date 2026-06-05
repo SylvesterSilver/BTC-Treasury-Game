@@ -34,9 +34,9 @@ export function EraSelect({ onSelect }: Props) {
         <div className="border border-t-0 border-[#1a2540] rounded-b bg-gradient-to-b from-[#04070f] to-[#060a12] px-8 py-8">
           {/* Big ₿ */}
           <div className="relative mb-4">
-            <div className="text-[5rem] leading-none font-bold text-bitcoin glow-text-bitcoin text-center select-none">₿</div>
+            <div className="text-5xl md:text-[5rem] leading-none font-bold text-bitcoin glow-text-bitcoin text-center select-none">₿</div>
           </div>
-          <h1 className="text-3xl font-bold text-white mb-1 tracking-tight">
+          <h1 className="text-xl md:text-3xl font-bold text-white mb-1 tracking-tight">
             BITCOIN TREASURY STRATEGY SIMULATOR
           </h1>
           <div className="h-px bg-gradient-to-r from-transparent via-bitcoin to-transparent w-96 mx-auto my-3 opacity-40" />
