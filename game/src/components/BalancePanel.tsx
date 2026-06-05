@@ -131,7 +131,7 @@ export function BalancePanel({ balance, metrics }: Props) {
           sub={balance.convertibleDebtMM > 0 ? `${(metrics.currentInterestRate * 100).toFixed(1)}% · $${(balance.convertibleDebtMM * metrics.currentInterestRate / 12).toFixed(1)}M/mo` : undefined} />
         <Row label="Preferred" value={balance.preferredFaceValueMM > 0 ? fmtMM(balance.preferredFaceValueMM) : 'NONE'}
           color={balance.preferredFaceValueMM > 0 ? '#f59e0b' : '#22c55e'}
-          sub={balance.preferredFaceValueMM > 0 ? `$${(balance.preferredFaceValueMM * 0.08 / 12).toFixed(1)}M/mo div` : undefined} />
+          sub={balance.preferredFaceValueMM > 0 ? `$${(balance.preferredFaceValueMM * 0.115 / 12).toFixed(1)}M/mo div` : undefined} />
         <Row label="Net Asset Value" value={fmtMM(metrics.netAssetValueMM)}
           color={metrics.netAssetValueMM > 0 ? '#22c55e' : '#ef4444'} />
         {balance.preferredDivAccruedMM > 0.01 && (

@@ -23,7 +23,7 @@ export function ConfigScreen({ era, onStart, onBack }: Props) {
   const isValid = effectiveCapital > 0 && effectiveCapital <= MAX_CAPITAL_MM;
 
   const maxBTC = (effectiveCapital * 1e6) / era.startPrice;
-  const quarterlyPrefDivMM = (era.startingPreferred * 0.08) / 4;
+  const quarterlyPrefDivMM = (era.startingPreferred * 0.115) / 4;
   const quarterlyInterest = (era.startingDebt * era.interestRate) / 4;
   const quarterlyOpex = era.softwareRevenue * 0.85;
   const quarterlyRevenue = era.softwareRevenue;
