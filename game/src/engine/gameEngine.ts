@@ -4,14 +4,16 @@ import { PriceSimulator } from './priceSimulator';
 import type { PricePoint } from './priceSimulator';
 import { FinancialModel } from './financialModel';
 import type { BalanceSheet, GameMetrics, GameEvent } from './financialModel';
+import { NEWS_EVENTS } from '../data/newsEvents';
+import type { NewsEvent } from '../data/newsEvents';
 
 export type GamePhase = 'RUNNING' | 'PAUSED' | 'GAME_OVER_WIN' | 'GAME_OVER_LOSE';
 export type TimeSpeed = 'PAUSED' | '1D' | '1W' | '1M';
 
 export const TIME_SPEEDS: Record<TimeSpeed, { label: string; daysPerTick: number; tickMs: number }> = {
   PAUSED: { label: 'PAUSED', daysPerTick: 0, tickMs: 0 },
-  '1D':   { label: '1 DAY/S', daysPerTick: 1, tickMs: 800 },
-  '1W':   { label: '1 WK/S',  daysPerTick: 7, tickMs: 800 },
+  '1D':   { label: '1 DAY/S', daysPerTick: 1,  tickMs: 800 },
+  '1W':   { label: '1 WK/S',  daysPerTick: 7,  tickMs: 800 },
   '1M':   { label: '1 MO/S',  daysPerTick: 30, tickMs: 800 },
 };
 
@@ -30,6 +32,7 @@ export interface GameState {
   totalDays: number;
   notifications: Notification[];
   lastTradeFlash?: 'BUY' | 'SELL' | 'ATM' | null;
+  lastNewsEvent?: NewsEvent | null;
 }
 
 export interface Notification {
@@ -46,6 +49,8 @@ export class GameEngine {
   private notifications: Notification[] = [];
   private readonly totalGameDays: number = 730;
   private lastTradeFlash: 'BUY' | 'SELL' | 'ATM' | null = null;
+  private lastNewsEvent: NewsEvent | null = null;
+  private firedEventIds = new Set<string>();
 
   constructor(era: Era, config?: GameConfig) {
     this.era = era;
@@ -58,7 +63,9 @@ export class GameEngine {
     const currentPrice = this.simulator.getCurrentPrice();
     const metrics = this.model.computeMetrics(currentPrice);
     const flash = this.lastTradeFlash;
+    const newsEvt = this.lastNewsEvent;
     this.lastTradeFlash = null;
+    this.lastNewsEvent = null;
 
     return {
       phase: metrics.isInsolvent ? 'GAME_OVER_LOSE' : 'RUNNING',
@@ -75,6 +82,7 @@ export class GameEngine {
       totalDays: this.totalGameDays,
       notifications: this.notifications,
       lastTradeFlash: flash,
+      lastNewsEvent: newsEvt,
     };
   }
 
@@ -83,51 +91,71 @@ export class GameEngine {
     if (newPoints.length > 0) {
       this.model.tick(newPoints[0].price, this.simulator.getCurrentDay() % 7);
     }
-    this.maybeFireEvent();
+    this.maybeFireNewsEvent();
   }
 
   tickDays(days: number): void {
     for (let i = 0; i < days; i++) this.tick();
   }
 
-  private maybeFireEvent(): void {
-    if (Math.random() > 0.99) {
-      const day = this.simulator.getCurrentDay();
-      const events: GameEvent[] = [
-        { id: `ev_${day}_etf`, day, type: 'GOOD', title: 'ETF INFLOW SURGE', description: 'Bitcoin ETFs see record weekly inflows.' },
-        { id: `ev_${day}_hack`, day, type: 'BAD', title: 'EXCHANGE HACK', description: 'Major exchange breached — fear spreads.' },
-        { id: `ev_${day}_fed`, day, type: 'NEUTRAL', title: 'FED HOLDS RATES', description: 'Federal Reserve holds. Risk assets breathe.' },
-        { id: `ev_${day}_nation`, day, type: 'GOOD', title: 'NATION-STATE BUYS', description: 'Sovereign fund adds Bitcoin to reserves.' },
-        { id: `ev_${day}_sec`, day, type: 'BAD', title: 'REGULATORY CRACKDOWN', description: 'SEC targets crypto lending platforms.' },
-        { id: `ev_${day}_halving`, day, type: 'GOOD', title: 'HALVING BUZZ', description: 'Supply shock narrative explodes on social media.' },
-        { id: `ev_${day}_whale`, day, type: 'BAD', title: 'WHALE DUMP DETECTED', description: 'On-chain data shows massive BTC outflow to exchanges.' },
-      ];
-      const event = events[Math.floor(Math.random() * events.length)];
-      this.model.addEvent(event);
-      this.addNotification(
-        event.type === 'GOOD' ? 'info' : event.type === 'BAD' ? 'warning' : 'info',
-        `⚡ ${event.title}: ${event.description}`
-      );
+  private maybeFireNewsEvent(): void {
+    const day = this.simulator.getCurrentDay();
+    const roll = Math.random();
+
+    // ~1.5% chance per day of a significant news event
+    if (roll > 0.985) {
+      // Filter eligible events for this era
+      const eligible = NEWS_EVENTS.filter(e => {
+        if (this.firedEventIds.has(e.id)) return false;
+        if (e.minDay && day < e.minDay) return false;
+        if (e.eraIds && !e.eraIds.includes(this.era.id)) return false;
+        return true;
+      });
+
+      if (eligible.length > 0) {
+        const event = eligible[Math.floor(Math.random() * eligible.length)];
+        this.firedEventIds.add(event.id);
+        this.lastNewsEvent = event;
+
+        // Apply effects
+        this.model.applyNewsImpact(
+          event.priceImpactPct,
+          event.sentimentDelta,
+          event.interestRateDelta
+        );
+        if (Math.abs(event.priceImpactPct) > 0.001) {
+          this.simulator.applyMarketImpact(event.priceImpactPct);
+        }
+
+        // Notification
+        const type = event.type === 'BULLISH' ? 'info'
+          : event.type === 'BEARISH' ? 'warning'
+          : 'info';
+        this.addNotification(type, `${event.type === 'BULLISH' ? '▲' : event.type === 'BEARISH' ? '▼' : '◆'} ${event.headline}`);
+
+        // Add rate change notification if applicable
+        if (event.interestRateDelta) {
+          const direction = event.interestRateDelta > 0 ? 'rises' : 'falls';
+          this.addNotification('warning',
+            `⚡ RATE CHANGE: Debt interest rate ${direction} by ${Math.abs(event.interestRateDelta * 100).toFixed(1)}bps`);
+        }
+      }
     }
   }
 
   getConePoints(days: number = 90) { return this.simulator.getConePoints(days); }
   getSimulator() { return this.simulator; }
 
-  // --- ACTIONS ---
-
   buyBTC(amountMM: number): Notification {
     const price = this.simulator.getCurrentPrice();
     const result = this.model.buyBTC(amountMM, price);
     if (result.success) {
-      // Apply price impact to the chart
       if (Math.abs(result.impact.priceImpactPct) > 0.001) {
         this.simulator.applyMarketImpact(result.impact.priceImpactPct);
       }
       this.lastTradeFlash = 'BUY';
       const pctStr = result.impact.priceImpactPct > 0.001
-        ? ` ↑ BTC +${(result.impact.priceImpactPct * 100).toFixed(1)}%`
-        : '';
+        ? ` ↑ BTC +${(result.impact.priceImpactPct * 100).toFixed(1)}%` : '';
       return this.addNotification('success',
         `₿ STACKED ${result.btcBought.toLocaleString(undefined, { maximumFractionDigits: 2 })} BTC for $${amountMM.toFixed(1)}M${pctStr}`);
     }
@@ -154,7 +182,7 @@ export class GameEngine {
     if (result.success) {
       this.lastTradeFlash = 'ATM';
       return this.addNotification('success',
-        `📈 ATM: ${sharesMM.toFixed(1)}M shares → $${result.proceedsMM.toFixed(1)}M raised. mNAV compressed.`);
+        `📈 ATM: ${sharesMM.toFixed(1)}M shares → $${result.proceedsMM.toFixed(1)}M raised`);
     }
     return this.addNotification('error', result.reason ?? 'ATM failed');
   }
@@ -194,18 +222,12 @@ export class GameEngine {
   checkWin(): boolean {
     const balance = this.model.getBalance();
     const price = this.simulator.getCurrentPrice();
-    const btcValueMM = (balance.btcHeld * price) / 1e6;
-    return btcValueMM > 10000 && this.simulator.getCurrentDay() >= this.totalGameDays;
+    return (balance.btcHeld * price) / 1e6 > 10000 && this.simulator.getCurrentDay() >= this.totalGameDays;
   }
 
   getWinScore() {
     const balance = this.model.getBalance();
     const price = this.simulator.getCurrentPrice();
-    return {
-      btc: balance.btcHeld,
-      btcValueMM: (balance.btcHeld * price) / 1e6,
-      mNAV: this.model.getMNAV(),
-      daysSurvived: this.simulator.getCurrentDay(),
-    };
+    return { btc: balance.btcHeld, btcValueMM: (balance.btcHeld * price) / 1e6, mNAV: this.model.getMNAV(), daysSurvived: this.simulator.getCurrentDay() };
   }
 }

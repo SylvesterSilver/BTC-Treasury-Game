@@ -15,111 +15,128 @@ export function EraSelect({ onSelect }: Props) {
   const [hovered, setHovered] = useState<string | null>(null);
 
   return (
-    <div className="min-h-screen bg-terminal-bg flex flex-col items-center justify-start py-12 px-4">
+    <div className="min-h-screen terminal-bg flex flex-col items-center justify-start py-10 px-4">
+
       {/* Header */}
-      <div className="text-center mb-10">
-        <div className="text-bitcoin text-xs tracking-[0.3em] uppercase mb-3 opacity-70">₿</div>
-        <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">
-          BITCOIN TREASURY
-        </h1>
-        <p className="text-slate-400 text-sm tracking-widest uppercase">
-          Strategy Simulator
-        </p>
-        <div className="mt-4 h-px bg-gradient-to-r from-transparent via-terminal-border to-transparent w-64 mx-auto" />
-        <p className="text-slate-500 text-xs mt-4 max-w-md mx-auto leading-relaxed">
-          You are Michael Saylor. Pick an era, manage the Bitcoin treasury, issue capital,
-          weather the volatility. Don't go bust.
-        </p>
+      <div className="text-center mb-8 w-full max-w-5xl">
+        {/* Top bar */}
+        <div className="flex items-center justify-between border border-[#1a2540] rounded-t bg-[#04070f] px-4 py-2 mb-0">
+          <div className="flex gap-2">
+            <div className="w-3 h-3 rounded-full bg-red-500/60" />
+            <div className="w-3 h-3 rounded-full bg-yellow-500/60" />
+            <div className="w-3 h-3 rounded-full bg-green-500/60" />
+          </div>
+          <span className="text-[#2a3a52] text-xs font-mono">BTCS://TERMINAL/ERA_SELECT — v3.0</span>
+          <span className="text-bitcoin text-xs font-mono ticker-live">● LIVE</span>
+        </div>
+
+        {/* Main header */}
+        <div className="border border-t-0 border-[#1a2540] rounded-b bg-gradient-to-b from-[#04070f] to-[#060a12] px-8 py-8">
+          {/* Big ₿ */}
+          <div className="relative mb-4">
+            <div className="text-[5rem] leading-none font-bold text-bitcoin glow-text-bitcoin text-center select-none">₿</div>
+          </div>
+          <h1 className="text-3xl font-bold text-white mb-1 tracking-tight">
+            BITCOIN TREASURY STRATEGY SIMULATOR
+          </h1>
+          <div className="h-px bg-gradient-to-r from-transparent via-bitcoin to-transparent w-96 mx-auto my-3 opacity-40" />
+          <p className="text-[#3a5070] text-xs tracking-[0.2em] uppercase mb-1">
+            You are the CFO. Stack Bitcoin. Maximize the stock price. Don't go bust.
+          </p>
+          <p className="text-[#2a3a52] text-xs">
+            Issue stock · Issue preferred · Buy BTC · Pay debt · Survive the cycle
+          </p>
+        </div>
       </div>
 
       {/* Era Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 w-full max-w-6xl">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 w-full max-w-6xl">
         {ERAS.map(era => {
-          const isHovered = hovered === era.id;
+          const isHov = hovered === era.id;
           return (
             <button
               key={era.id}
-              className="text-left p-5 rounded-lg border transition-all duration-200 cursor-pointer"
+              className="era-card text-left p-4"
               style={{
-                background: isHovered ? '#111827' : '#0f1629',
-                borderColor: isHovered ? era.difficultyColor : '#1e2d4a',
-                boxShadow: isHovered ? `0 0 24px ${era.difficultyColor}33` : 'none',
+                borderColor: isHov ? era.difficultyColor : '#1a2540',
+                boxShadow: isHov ? `0 0 30px ${era.difficultyColor}33, inset 0 0 30px ${era.difficultyColor}08` : 'none',
+                transform: isHov ? 'translateY(-3px)' : 'translateY(0)',
               }}
               onMouseEnter={() => setHovered(era.id)}
               onMouseLeave={() => setHovered(null)}
               onClick={() => onSelect(era)}
             >
-              {/* Top bar */}
-              <div className="flex items-center justify-between mb-3">
-                <span
-                  className="text-xs font-bold px-2 py-0.5 rounded uppercase tracking-wider"
-                  style={{
-                    color: era.difficultyColor,
-                    background: `${era.difficultyColor}22`,
-                    border: `1px solid ${era.difficultyColor}44`,
-                  }}
-                >
+              {/* Header row */}
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold px-2 py-0.5 rounded uppercase tracking-wider"
+                  style={{ color: era.difficultyColor, background: `${era.difficultyColor}22`, border: `1px solid ${era.difficultyColor}44` }}>
                   {era.difficulty}
                 </span>
-                <span className="text-slate-600 text-xs">
-                  {era.startYear}
-                </span>
+                <span className="text-[#2a3a52] text-xs font-mono">{era.startYear}</span>
               </div>
 
-              {/* Name */}
-              <h3 className="text-white font-bold text-sm mb-0.5 leading-tight">
-                {era.name}
-              </h3>
-              <p className="text-slate-500 text-xs mb-3">{era.subtitle}</p>
+              {/* Era name */}
+              <h3 className="text-white font-bold text-sm mb-0.5 leading-tight">{era.name}</h3>
+              <p className="text-[#3a5070] text-xs mb-3">{era.subtitle}</p>
 
-              {/* Starting stats */}
-              <div className="space-y-1 mb-3">
-                <div className="flex justify-between text-xs">
-                  <span className="text-slate-600">BTC Price</span>
-                  <span className="text-bitcoin font-mono">{formatPrice(era.startPrice)}</span>
+              {/* Stats grid */}
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1 mb-3 text-xs">
+                <div>
+                  <div className="text-[#2a3a52]">BTC Price</div>
+                  <div className="text-bitcoin font-mono font-bold">{formatPrice(era.startPrice)}</div>
                 </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-slate-600">BTC Held</span>
-                  <span className="text-slate-300 font-mono">
-                    {era.startingBTC === 0 ? 'NONE' : era.startingBTC.toLocaleString()}
-                  </span>
+                <div>
+                  <div className="text-[#2a3a52]">Cash</div>
+                  <div className="text-emerald-400 font-mono font-bold">${era.startingCash}M</div>
                 </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-slate-600">Cash</span>
-                  <span className="text-emerald-400 font-mono">${era.startingCash}M</span>
+                <div>
+                  <div className="text-[#2a3a52]">BTC Held</div>
+                  <div className="text-slate-300 font-mono font-bold">
+                    {era.startingBTC === 0 ? '—' : era.startingBTC >= 1000 ? `${(era.startingBTC/1000).toFixed(0)}K` : era.startingBTC.toLocaleString()}
+                  </div>
                 </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-slate-600">Debt</span>
-                  <span className="text-red-400 font-mono">
-                    {era.startingDebt === 0 ? 'CLEAN' : `$${era.startingDebt >= 1000 ? (era.startingDebt/1000).toFixed(1)+'B' : era.startingDebt+'M'}`}
-                  </span>
+                <div>
+                  <div className="text-[#2a3a52]">Debt</div>
+                  <div className="font-mono font-bold" style={{ color: era.startingDebt === 0 ? '#22c55e' : '#ef4444' }}>
+                    {era.startingDebt === 0 ? 'CLEAN' : era.startingDebt >= 1000 ? `$${(era.startingDebt/1000).toFixed(1)}B` : `$${era.startingDebt}M`}
+                  </div>
                 </div>
+              </div>
+
+              {/* Macro env */}
+              <div className="text-xs px-2 py-1 rounded mb-2 font-mono"
+                style={{ background: '#0a0f1e', border: '1px solid #1a2540', color: '#3a5070' }}>
+                {era.macroEnv}
+              </div>
+
+              {/* Rate */}
+              <div className="text-xs text-[#2a3a52] mb-2">
+                Debt rate: <span className="font-mono" style={{ color: era.interestRate >= 0.065 ? '#ef4444' : era.interestRate >= 0.04 ? '#f59e0b' : '#22c55e' }}>
+                  {(era.interestRate * 100).toFixed(1)}%
+                </span>
               </div>
 
               {/* Description */}
-              <p className="text-slate-500 text-xs leading-relaxed border-t border-terminal-border pt-3">
+              <p className="text-[#2a3a52] text-xs leading-relaxed border-t border-[#1a2540] pt-2">
                 {era.description}
               </p>
 
-              {/* Hover CTA */}
-              <div
-                className="mt-3 text-xs font-bold tracking-widest uppercase text-center py-1.5 rounded transition-all"
+              {/* CTA */}
+              <div className="mt-3 text-xs font-bold tracking-widest uppercase text-center py-1.5 rounded transition-all"
                 style={{
-                  color: isHovered ? '#000' : era.difficultyColor,
-                  background: isHovered ? era.difficultyColor : 'transparent',
-                  border: `1px solid ${era.difficultyColor}66`,
-                }}
-              >
-                {isHovered ? '▶ ENTER ERA' : 'SELECT'}
+                  color: isHov ? '#000' : era.difficultyColor,
+                  background: isHov ? era.difficultyColor : 'transparent',
+                  border: `1px solid ${era.difficultyColor}55`,
+                }}>
+                {isHov ? '▶ SELECT ERA' : 'SELECT'}
               </div>
             </button>
           );
         })}
       </div>
 
-      {/* Footer */}
-      <div className="mt-10 text-slate-700 text-xs text-center">
-        <span>Historical prices are approximate representations for gameplay. Not financial advice.</span>
+      <div className="mt-6 text-[#1a2540] text-xs text-center font-mono">
+        Historical prices are approximate game representations · Not financial advice · ₿
       </div>
     </div>
   );
