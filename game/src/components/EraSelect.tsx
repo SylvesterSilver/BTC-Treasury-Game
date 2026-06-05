@@ -20,10 +20,10 @@ export function EraSelect({ onSelect }: Props) {
       <div className="text-center mb-10">
         <div className="text-bitcoin text-xs tracking-[0.3em] uppercase mb-3 opacity-70">₿</div>
         <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">
-          SAYLOR MODE
+          BITCOIN TREASURY
         </h1>
         <p className="text-slate-400 text-sm tracking-widest uppercase">
-          Bitcoin Treasury Strategy
+          Strategy Simulator
         </p>
         <div className="mt-4 h-px bg-gradient-to-r from-transparent via-terminal-border to-transparent w-64 mx-auto" />
         <p className="text-slate-500 text-xs mt-4 max-w-md mx-auto leading-relaxed">
