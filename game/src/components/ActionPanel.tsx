@@ -212,7 +212,7 @@ export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueComm
         {/* ── PREFERRED ── */}
         {tab === 'PREFERRED' && (
           <div className="p-3 rounded border border-purple-900/40 bg-purple-950/10">
-            <div className="text-purple-400 text-xs font-bold uppercase tracking-wider mb-2">💎 STRK-STYLE PREFERRED @ 8%/yr</div>
+            <div className="text-purple-400 text-xs font-bold uppercase tracking-wider mb-2">💎 STRC-STYLE PREFERRED @ 11.5% base</div>
             <div className="rounded p-2 text-xs mb-3 bg-purple-950/30 border border-purple-800/30 text-purple-300">
               Powerful leverage. Each $100M raised = $8M/yr in fixed dividends forever.
               <span className="text-red-400"> Paid monthly.</span> Catastrophic in a bear market if BTC dumps.
@@ -220,7 +220,7 @@ export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueComm
             {balance.preferredFaceValueMM > 0 && (
               <div className="text-xs text-[#3a5070] mb-3 font-mono">
                 Stack: <span className="text-yellow-400">${balance.preferredFaceValueMM.toFixed(0)}M</span>
-                {' → '}monthly div: <span className="text-red-400">${(balance.preferredFaceValueMM * 0.08 / 12).toFixed(1)}M</span>
+                {' → '}monthly div: <span className="text-red-400">${(balance.preferredFaceValueMM * 0.115 / 12).toFixed(1)}M</span>
               </div>
             )}
             <div className="flex flex-wrap gap-1 mb-2">
@@ -246,7 +246,7 @@ export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueComm
             </div>
             {prefAmt && parseFloat(prefAmt) > 0 && (
               <div className="text-xs text-red-400 mt-1 font-mono">
-                Adds ${(parseFloat(prefAmt) * 0.08 / 12).toFixed(1)}M/month in fixed dividends
+                Adds ${(parseFloat(prefAmt) * metrics.strcRate / 12).toFixed(1)}M/month at current {(metrics.strcRate * 100).toFixed(1)}% rate
               </div>
             )}
           </div>

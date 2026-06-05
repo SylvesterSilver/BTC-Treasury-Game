@@ -35,6 +35,7 @@ export interface GameMetrics {
   monthsRunway: number;
   leverageRatio: number;
   currentInterestRate: number;  // live annual rate
+  strcRate: number;              // live STRC dividend rate (dynamic)
   isInsolvent: boolean;
   insolventReason?: string;
   preferredCoverageRatio: number;
@@ -60,9 +61,19 @@ export interface TradeImpact {
   stockImpactPct: number;
 }
 
-const PREFERRED_DIV_RATE = 0.08;
+const STRC_BASE_RATE = 0.115;   // 11.5% base annual div rate (STRC preferred)
 const PREFERRED_FACE_PER_SHARE = 0.025;
 const BTC_SUPPLY_PROXY = 19_700_000;
+
+// Dynamic STRC rate: exponential as preferred/BTC coverage deteriorates
+function computeSTRCRate(btcValueMM: number, preferredFaceValueMM: number): number {
+  if (preferredFaceValueMM <= 0) return STRC_BASE_RATE;
+  const coverage = btcValueMM / preferredFaceValueMM;
+  if (coverage >= 2.0) return STRC_BASE_RATE;  // safe zone — base rate
+  // Exponential escalation below 2x coverage
+  const riskMult = Math.pow(Math.max(1, 2.0 / Math.max(coverage, 0.05)), 2.0);
+  return Math.min(STRC_BASE_RATE * riskMult, 0.99);  // cap at 99%/year
+}
 
 export class FinancialModel {
   private era: Era;
@@ -92,7 +103,7 @@ export class FinancialModel {
       cashMM: startingCapitalMM ?? era.startingCash,
       convertibleDebtMM: era.startingDebt,
       preferredFaceValueMM: era.startingPreferred,
-      preferredDivRate: PREFERRED_DIV_RATE,
+      preferredDivRate: STRC_BASE_RATE,  // base rate; actual rate is dynamic
       sharesOutstanding: era.startingShares,
       preferredSharesMM: prefShares,
       preferredDivAccruedMM: 0,
@@ -140,9 +151,11 @@ export class FinancialModel {
       ? ((btcPrice - costBasisPerBTC) / costBasisPerBTC) * 100
       : 0;
 
+    // Dynamic STRC rate — escalates exponentially as preferred exceeds BTC coverage
+    const strcRate = computeSTRCRate(btcValueMM, this.balance.preferredFaceValueMM);
     // Monthly costs (dividends paid monthly)
     const monthlyInterest = (this.balance.convertibleDebtMM * this.currentInterestRate) / 12;
-    const monthlyPrefDiv = (this.balance.preferredFaceValueMM * PREFERRED_DIV_RATE) / 12;
+    const monthlyPrefDiv = (this.balance.preferredFaceValueMM * strcRate) / 12;
     const monthlyOpex = (this.era.softwareRevenue * 0.85) / 3;
     const monthlyRevenue = this.era.softwareRevenue / 3;
     const monthlyBurn = monthlyInterest + monthlyPrefDiv + monthlyOpex - monthlyRevenue;
@@ -162,7 +175,7 @@ export class FinancialModel {
 
     const atmCooldown = Math.min(100, this.atmIssuanceCount * 25);
 
-    const monthlyPrefDivActual = (this.balance.preferredFaceValueMM * PREFERRED_DIV_RATE) / 12;
+    const monthlyPrefDivActual = (this.balance.preferredFaceValueMM * strcRate) / 12;
     let isInsolvent = false, insolventReason: string | undefined;
     if (this.balance.cashMM < -50) {
       isInsolvent = true;
@@ -186,6 +199,7 @@ export class FinancialModel {
       quarterlyBurnMM, monthsRunway, leverageRatio, currentInterestRate: this.currentInterestRate,
       isInsolvent, insolventReason, preferredCoverageRatio,
       sentiment, sentimentLabel, sentimentColor, atmCooldown,
+      strcRate,
     };
   }
 
@@ -195,7 +209,9 @@ export class FinancialModel {
     const dailyOpex = (this.era.softwareRevenue * 0.85) / 90;
     this.balance.cashMM += (dailyRevenue - dailyOpex);
     this.balance.cashMM -= (this.balance.convertibleDebtMM * this.currentInterestRate) / 365;
-    const dailyPrefDiv = (this.balance.preferredFaceValueMM * PREFERRED_DIV_RATE) / 365;
+    const btcValueApprox = (this.balance.btcHeld * btcPrice) / 1e6;
+    const dynamicStrcRate = computeSTRCRate(btcValueApprox, this.balance.preferredFaceValueMM);
+    const dailyPrefDiv = (this.balance.preferredFaceValueMM * dynamicStrcRate) / 365;
     this.balance.preferredDivAccruedMM += dailyPrefDiv;
     if (this.dayCount % 30 === 0) {
       this.balance.cashMM -= this.balance.preferredDivAccruedMM;
@@ -246,7 +262,7 @@ export class FinancialModel {
 
   private computeBTCTradeImpact(btcAmount: number, isBuy: boolean): TradeImpact {
     const supplyFraction = btcAmount / BTC_SUPPLY_PROXY;
-    const rawImpact = supplyFraction * 25;
+    const rawImpact = supplyFraction * 60;  // amplified for arcade feel — large buys visibly move the chart
     const priceImpactPct = isBuy ? rawImpact : -rawImpact * 1.8;
     const mNavImpact = isBuy ? rawImpact * 0.3 : -rawImpact * 0.8;
     const sentimentImpact = isBuy ? rawImpact * 8 : -rawImpact * 15;
