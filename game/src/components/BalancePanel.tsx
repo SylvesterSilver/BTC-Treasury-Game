@@ -1,3 +1,4 @@
+import { fmtMM, fmtPrice } from '../utils/format';
 import type { BalanceSheet, GameMetrics } from '../engine/financialModel';
 
 interface Props {
@@ -5,16 +6,7 @@ interface Props {
   metrics: GameMetrics;
 }
 
-function fmtMM(v: number): string {
-  if (Math.abs(v) >= 1000) return `$${(v / 1000).toFixed(2)}B`;
-  return `$${v.toFixed(1)}M`;
-}
 
-function fmtPrice(p: number): string {
-  if (p >= 1e6) return `$${(p / 1e6).toFixed(1)}M`;
-  if (p >= 1000) return `$${(p / 1000).toFixed(1)}K`;
-  return `$${p.toFixed(0)}`;
-}
 
 function Row({ label, value, color, sub }: { label: string; value: string; color?: string; sub?: string }) {
   return (

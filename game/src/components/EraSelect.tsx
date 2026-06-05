@@ -135,8 +135,9 @@ export function EraSelect({ onSelect }: Props) {
         })}
       </div>
 
-      <div className="mt-6 text-[#1a2540] text-xs text-center font-mono">
-        Historical prices are approximate game representations · Not financial advice · ₿
+      <div className="mt-6 text-center">
+        <div className="font-cursive text-xl mb-1" style={{ color: '#F7931A88' }}>created by @Benny_Stacks</div>
+        <div className="text-[#1a2540] text-xs font-mono">Historical prices are approximate game representations · Not financial advice · ₿</div>
       </div>
     </div>
   );

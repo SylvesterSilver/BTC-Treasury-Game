@@ -5,28 +5,35 @@ const BTC_URI = `bitcoin:${BTC_ADDRESS}`;
 
 export function DonateQR() {
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 rounded border border-[#1a2540] bg-[#04070f]"
-      style={{ borderColor: '#F7931A33' }}>
-      {/* QR code ~80px */}
-      <div className="flex-shrink-0 p-1 rounded" style={{ background: '#fff' }}>
+    <div className="flex items-center gap-3 px-3 py-2 rounded border"
+      style={{ borderColor: '#F7931A44', background: '#0a0f1e' }}>
+      {/* QR code — ~100px / ~1in */}
+      <div className="flex-shrink-0 p-1.5 rounded-md" style={{ background: '#fff' }}>
         <QRCodeSVG
           value={BTC_URI}
-          size={76}
+          size={96}
           bgColor="#ffffff"
           fgColor="#000000"
           level="M"
+          imageSettings={{
+            src: '',
+            excavate: false,
+            width: 0,
+            height: 0,
+          }}
         />
       </div>
       {/* Label */}
-      <div className="text-left">
-        <div className="text-bitcoin text-xs font-bold uppercase tracking-wider flex items-center gap-1">
-          <span>₿</span> TIP JAR
+      <div>
+        <div className="text-bitcoin text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 mb-1">
+          <span className="text-base glow-text-bitcoin">₿</span>
+          <span>TIP JAR</span>
         </div>
-        <div className="text-[#3a5070] text-xs mt-0.5 leading-tight" style={{ maxWidth: 100 }}>
-          Enjoying the sim? Donate BTC
+        <div className="text-slate-400 text-xs leading-snug mb-1.5" style={{ maxWidth: 110 }}>
+          Enjoying the sim?<br />Send a little BTC ↗
         </div>
-        <div className="text-[#2a3a52] font-mono mt-1" style={{ fontSize: '0.55rem', wordBreak: 'break-all', maxWidth: 100 }}>
-          {BTC_ADDRESS.slice(0, 14)}…
+        <div className="text-[#2a3a52] font-mono" style={{ fontSize: '0.58rem', wordBreak: 'break-all', maxWidth: 110 }}>
+          {BTC_ADDRESS.slice(0, 16)}…
         </div>
       </div>
     </div>
