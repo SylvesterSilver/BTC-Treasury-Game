@@ -295,3 +295,31 @@ input[type="number"]::-webkit-inner-spin-button {
   cursor: pointer;
 }
 .era-card:hover { transform: translateY(-2px); }
+
+/* ── Play button pulse ── */
+@keyframes play-pulse {
+  0%, 100% { box-shadow: 0 0 40px rgba(247,147,26,0.5), 0 0 80px rgba(247,147,26,0.2); }
+  50%       { box-shadow: 0 0 60px rgba(247,147,26,0.8), 0 0 120px rgba(247,147,26,0.35); }
+}
+.play-btn-pulse {
+  animation: play-pulse 2s ease-in-out infinite;
+}
+
+/* ── Mobile touch improvements ── */
+@media (max-width: 768px) {
+  .btn-bitcoin, .btn-green, .btn-red, .btn-smash, .btn-outline {
+    padding: 12px 16px;
+    font-size: 0.8rem;
+    min-height: 44px;
+  }
+  input[type="number"] {
+    font-size: 16px; /* prevents iOS zoom on focus */
+    min-height: 44px;
+  }
+  .game-card {
+    border-radius: 8px;
+  }
+  .stock-price-hero {
+    font-size: 2.2rem;
+  }
+}
