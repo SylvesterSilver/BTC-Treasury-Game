@@ -1,3 +1,4 @@
+import { fmtMM } from '../utils/format';
 import { useState } from 'react';
 import type { Era } from '../data/eras';
 import type { GameConfig } from '../data/gameConfig';
@@ -7,11 +8,6 @@ interface Props {
   era: Era;
   onStart: (config: GameConfig) => void;
   onBack: () => void;
-}
-
-function fmt(mm: number): string {
-  if (mm >= 1000) return `$${(mm / 1000).toFixed(mm % 1000 === 0 ? 0 : 2)}B`;
-  return `$${mm}M`;
 }
 
 export function ConfigScreen({ era, onStart, onBack }: Props) {
@@ -109,7 +105,7 @@ export function ConfigScreen({ era, onStart, onBack }: Props) {
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[#3a5070] text-xs font-mono">M</span>
               </div>
-              <span className="text-[#2a3a52] text-xs text-right">max<br /><span className="font-mono text-slate-400">{fmt(MAX_CAPITAL_MM)}</span></span>
+              <span className="text-[#2a3a52] text-xs text-right">max<br /><span className="font-mono text-slate-400">{fmtMM(MAX_CAPITAL_MM)}</span></span>
             </div>
           </div>
 
@@ -120,19 +116,19 @@ export function ConfigScreen({ era, onStart, onBack }: Props) {
               <div className="grid grid-cols-2 gap-4 mb-3">
                 <div>
                   <div className="text-[#3a5070] text-xs mb-0.5">Starting Cash</div>
-                  <div className="text-xl font-bold font-mono text-emerald-400">{fmt(effectiveCapital)}</div>
+                  <div className="text-xl font-bold font-mono text-emerald-400">{fmtMM(effectiveCapital)}</div>
                 </div>
                 <div>
                   <div className="text-[#3a5070] text-xs mb-0.5">Max BTC Immediately</div>
                   <div className="text-xl font-bold font-mono text-bitcoin">
                     {maxBTC >= 1000 ? `${(maxBTC/1000).toFixed(1)}K ₿` : `${maxBTC.toFixed(0)} ₿`}
                   </div>
-                  <div className="text-[#2a3a52] text-xs">@ {fmt(era.startPrice / 1e6 * 1e6 / 1e6 * 1)}{''} per BTC</div>
+                  <div className="text-[#2a3a52] text-xs">@ {fmtMM(era.startPrice / 1e6 * 1e6 / 1e6 * 1)}{''} per BTC</div>
                 </div>
                 <div>
                   <div className="text-[#3a5070] text-xs mb-0.5">Quarterly Burn</div>
                   <div className="font-bold font-mono text-base" style={{ color: quarterlyBurn > 0 ? '#ef4444' : '#22c55e' }}>
-                    {quarterlyBurn > 0 ? `-${fmt(quarterlyBurn)}/qtr` : `+${fmt(Math.abs(quarterlyBurn))}/qtr`}
+                    {quarterlyBurn > 0 ? `-${fmtMM(Math.abs(quarterlyBurn))}/qtr` : `+${fmtMM(Math.abs(quarterlyBurn))}/qtr`}
                   </div>
                 </div>
                 <div>
@@ -153,15 +149,15 @@ export function ConfigScreen({ era, onStart, onBack }: Props) {
                   {era.startingDebt > 0 && (
                     <div>
                       <div className="text-[#3a5070]">Conv. Debt</div>
-                      <div className="text-red-400 font-mono font-bold">{fmt(era.startingDebt)}</div>
+                      <div className="text-red-400 font-mono font-bold">{fmtMM(era.startingDebt)}</div>
                       <div className="text-[#2a3a52]">{(era.interestRate*100).toFixed(1)}%/yr interest</div>
                     </div>
                   )}
                   {era.startingPreferred > 0 && (
                     <div>
                       <div className="text-[#3a5070]">Preferred Stack</div>
-                      <div className="text-yellow-400 font-mono font-bold">{fmt(era.startingPreferred)}</div>
-                      <div className="text-[#2a3a52]">{fmt(quarterlyPrefDivMM)}/qtr in divs</div>
+                      <div className="text-yellow-400 font-mono font-bold">{fmtMM(era.startingPreferred)}</div>
+                      <div className="text-[#2a3a52]">{fmtMM(quarterlyPrefDivMM)}/qtr in divs</div>
                     </div>
                   )}
                 </div>
@@ -189,7 +185,7 @@ export function ConfigScreen({ era, onStart, onBack }: Props) {
                 </div>
                 {isValid && (
                   <div className="text-xs font-mono mt-0.5" style={{ color: 'rgba(0,0,0,0.6)' }}>
-                    {fmt(effectiveCapital)} starting capital · {era.name}
+                    {fmtMM(effectiveCapital)} starting capital · {era.name}
                   </div>
                 )}
               </div>

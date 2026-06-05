@@ -1,3 +1,4 @@
+import { fmtQuickLabel } from '../utils/format';
 import { useState } from 'react';
 import type { GameMetrics, BalanceSheet } from '../engine/financialModel';
 
@@ -70,7 +71,7 @@ export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueComm
               </div>
               <div className="flex flex-wrap gap-1 mb-2">
                 {[10, 50, 100, 250, 500, 1000].map(v => (
-                  <Quick key={v} label={`$${v}M`} onClick={() => setBuyAmt(String(v))} />
+                  <Quick key={v} label={fmtQuickLabel(v)} onClick={() => setBuyAmt(String(v))} />
                 ))}
                 <Quick label="MAX" onClick={() => setBuyAmt(Math.floor(balance.cashMM * 0.94).toString())} />
               </div>
@@ -266,7 +267,7 @@ export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueComm
             </div>
             <div className="flex flex-wrap gap-1 mb-2">
               {[50, 100, 250, 500].map(v => (
-                <Quick key={v} label={`$${v}M`} onClick={() => setDebtAmt(String(Math.min(v, balance.convertibleDebtMM)))} />
+                <Quick key={v} label={fmtQuickLabel(v)} onClick={() => setDebtAmt(String(Math.min(v, balance.convertibleDebtMM)))} />
               ))}
               <Quick label="ALL" onClick={() => setDebtAmt(Math.min(balance.convertibleDebtMM, balance.cashMM * 0.9).toFixed(0))} />
             </div>

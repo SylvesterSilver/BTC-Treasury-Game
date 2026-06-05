@@ -1,3 +1,4 @@
+import { fmtMM, fmtPrice } from '../utils/format';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { GameConfig } from '../data/gameConfig';
 import { GameEngine, TIME_SPEEDS } from '../engine/gameEngine';
@@ -18,16 +19,7 @@ interface Props {
   onExitToConfig: () => void;
 }
 
-function fmtMM(mm: number): string {
-  if (Math.abs(mm) >= 1000) return `$${(mm / 1000).toFixed(mm % 1000 === 0 ? 0 : 2)}B`;
-  return `$${mm.toFixed(0)}M`;
-}
 
-function fmtPrice(p: number): string {
-  if (p >= 1e6) return `$${(p / 1e6).toFixed(2)}M`;
-  if (p >= 1000) return `$${(p / 1000).toFixed(2)}K`;
-  return `$${p.toFixed(2)}`;
-}
 
 type MobileTab = 'CHART' | 'TRADE' | 'BALANCE';
 
