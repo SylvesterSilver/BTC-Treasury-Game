@@ -109,7 +109,7 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
     if (s) {
       setNotifications([...s.notifications]);
       setPrevStockPrice(s.metrics.stockPrice);
-      if (flash === 'BUY') { setFlashClass('flash-buy'); spawnParticles(7); setMobileTab('CHART'); }
+      if (flash === 'BUY') { setFlashClass('flash-buy'); spawnParticles(7); setMobileTab('CHART'); synthRef.current.playBuySound(0.8); }
       else if (flash === 'SELL') {
         setFlashClass('flash-sell');
         setStockCrashClass('stock-crash');

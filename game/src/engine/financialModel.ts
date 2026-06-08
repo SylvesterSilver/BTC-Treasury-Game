@@ -297,7 +297,7 @@ export class FinancialModel {
 
   issuePreferredStock(proceedsMM: number, btcPrice: number): { success: boolean; reason?: string } {
     if (proceedsMM <= 0) return { success: false, reason: 'Invalid amount.' };
-    if (proceedsMM > 500) return { success: false, reason: 'Max $500M per issuance.' };
+    if (proceedsMM > 2000) return { success: false, reason: 'Max $2B per issuance.' };
     const metrics = this.computeMetrics(btcPrice);
     if (metrics.mNAV < 0.8) return { success: false, reason: "Market won't buy preferred at this discount." };
     this.balance.preferredFaceValueMM += proceedsMM;

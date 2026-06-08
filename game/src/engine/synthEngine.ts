@@ -173,4 +173,55 @@ export class SynthEngine {
       osc.start(t); osc.stop(t + noteLen);
     });
   }
+  // Short satisfying synth "coin" sound on BTC buy
+  // Rising arpeggio: D4 → F#4 → A4 → D5, with slight shimmer
+  playBuySound(volume: number = 1.0) {
+    if (!this.ctx || !this.master) return;
+    const now = this.ctx.currentTime;
+    // D major arpeggio (happy, ascending, coin-like)
+    const notes = [293.66, 369.99, 440.00, 587.33];
+    const noteLen = 0.07;
+
+    notes.forEach((freq, i) => {
+      const t = now + i * noteLen;
+      // Sine + small square blend for that synth shimmer
+      ["sine", "square"].forEach((type, j) => {
+        const osc = this.ctx!.createOscillator();
+        const gain = this.ctx!.createGain();
+        const filter = this.ctx!.createBiquadFilter();
+
+        osc.type = type as OscillatorType;
+        osc.frequency.value = freq;
+        filter.type = "bandpass";
+        filter.frequency.value = freq * 2;
+        filter.Q.value = 2;
+
+        const vol = j === 0 ? 0.18 * volume : 0.06 * volume;
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(vol, t + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + noteLen * 1.6);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.master!);
+        osc.start(t);
+        osc.stop(t + noteLen * 2);
+      });
+    });
+
+    // Final shimmer sparkle on the last note
+    const sparkT = now + notes.length * noteLen;
+    const sparkOsc = this.ctx.createOscillator();
+    const sparkGain = this.ctx.createGain();
+    sparkOsc.type = "sine";
+    sparkOsc.frequency.setValueAtTime(587.33 * 2, sparkT);
+    sparkOsc.frequency.exponentialRampToValueAtTime(587.33 * 3, sparkT + 0.15);
+    sparkGain.gain.setValueAtTime(0.12 * volume, sparkT);
+    sparkGain.gain.exponentialRampToValueAtTime(0.001, sparkT + 0.25);
+    sparkOsc.connect(sparkGain);
+    sparkGain.connect(this.master!);
+    sparkOsc.start(sparkT);
+    sparkOsc.stop(sparkT + 0.3);
+  }
+
 }

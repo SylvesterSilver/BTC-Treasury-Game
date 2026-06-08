@@ -226,7 +226,7 @@ export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueComm
             )}
             <div className="flex flex-wrap gap-1 mb-2">
               {[50, 100, 200, 500, 1000].map(v => (
-                <Quick key={v} label={`$${v}M`} onClick={() => setPrefAmt(String(v))} />
+                <Quick key={v} label={fmtQuickLabel(v)} onClick={() => setPrefAmt(String(v))} />
               ))}
             </div>
             <div className="flex gap-2">
