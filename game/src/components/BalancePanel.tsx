@@ -86,25 +86,53 @@ export function BalancePanel({ balance, metrics }: Props) {
         </div>
       </div>
 
-      {/* ── Three mNAV Metrics ── */}
+      {/* ── mNAV Metrics + CEBE ── */}
       <div className="game-card p-3">
         <div className="section-label mb-2">mNAV MULTIPLES</div>
-        <div className="grid grid-cols-3 gap-1.5 mb-2">
+        <div className="grid grid-cols-2 gap-1.5 mb-2">
           <MNavBadge label="mNAV" value={metrics.mNAV} sub="Mkt Cap / BTC" />
           <MNavBadge label="EV mNAV" value={Math.max(0, metrics.evMNAV)} sub="EV / BTC" />
-          <MNavBadge label="CEBE mNAV" value={Math.max(0, metrics.cebeMNAV)} sub="(Cap+Pref) / BTC" />
         </div>
-        <div className="text-xs space-y-0.5">
-          <div className="bloomberg-row">
-            <span className="text-[#6a3090]">mNAV Status</span>
-            <span className="font-mono font-bold text-xs" style={{ color: metrics.mNAV >= 2 ? '#00FF88' : metrics.mNAV >= 1 ? '#f59e0b' : '#FF3355' }}>
-              {metrics.mNAVStatus.replace(/_/g, ' ')}
-            </span>
-          </div>
-        </div>
-        <div className="mt-1.5 text-xs rounded px-2 py-1"
+        <div className="mt-1.5 text-xs rounded px-2 py-1 mb-2"
           style={{ background: metrics.mNAV >= 2 ? 'rgba(0,255,136,0.08)' : 'rgba(255,51,85,0.08)', border: `1px solid ${metrics.mNAV >= 2 ? 'rgba(0,255,136,0.2)' : 'rgba(255,51,85,0.2)'}`, color: metrics.mNAV >= 2 ? '#00FF88' : '#FF3355' }}>
           {metrics.mNAV >= 2.0 ? '▲ Premium — SMASH the ATM' : metrics.mNAV < 1.0 ? '▼ ATM destroys value here' : '◆ Neutral — assess before issuing'}
+        </div>
+
+        {/* CEBE — correct formula */}
+        <div className="section-label mb-1.5">CEBE — NET BTC / DILUTED SHARE</div>
+        <div className="rounded p-2 text-xs" style={{background:'#04000a', border:'1px solid #2d0060'}}>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[#6a3090]">CEBE (sats/share)</span>
+            <span className="font-mono font-bold" style={{
+              color: metrics.cebePerShare > 0 ? '#00FF88' : '#FF3355',
+              textShadow: metrics.cebePerShare > 0 ? '0 0 8px rgba(0,255,136,0.5)' : '0 0 8px rgba(255,51,85,0.5)'
+            }}>
+              {metrics.cebeSats >= 0
+                ? `${metrics.cebeSats.toFixed(0)} sats`
+                : `−${Math.abs(metrics.cebeSats).toFixed(0)} sats`}
+            </span>
+          </div>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[#6a3090]">CEBE (BTC/share)</span>
+            <span className="font-mono font-bold text-xs" style={{color: metrics.cebePerShare >= 0 ? '#00FF88' : '#FF3355'}}>
+              {metrics.cebePerShare >= 0 ? '+' : ''}{metrics.cebePerShare.toFixed(6)} ₿
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[#6a3090]">CEBE Yield</span>
+            <span className="font-mono font-bold text-xs" style={{color: metrics.cebeYieldPct >= 0 ? '#00FF88' : '#FF3355'}}>
+              {metrics.cebeYieldPct >= 0 ? '+' : ''}{metrics.cebeYieldPct.toFixed(1)}%
+            </span>
+          </div>
+          {metrics.cebePerShare < 0 && (
+            <div className="mt-1.5 text-xs font-bold rounded px-1.5 py-1 animate-pulse"
+              style={{background:'rgba(255,51,85,0.15)', border:'1px solid rgba(255,51,85,0.5)', color:'#FF3355'}}>
+              ⚠ NEGATIVE CEBE: Senior claims exceed BTC treasury. Common equity is underwater.
+            </div>
+          )}
+          <div className="mt-1.5 text-[#3a1070]" style={{fontSize:'0.55rem', letterSpacing:'0.05em'}}>
+            Formula: (BTC − (Debt+Pref−Cash)/Price) ÷ Shares
+          </div>
         </div>
       </div>
 

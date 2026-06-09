@@ -39,7 +39,12 @@ export interface GameMetrics {
   strcMarketPrice: number;       // STRC market price ($100 par implied by rate)
   strcPriceHistory: number[];    // recent STRC price samples for mini chart
   evMNAV: number;                // Enterprise Value / BTC Value
-  cebeMNAV: number;              // (Market Cap + Preferred) / BTC Value
+  // CEBE = (BTC Held - Net Senior Claims in BTC) / Shares Outstanding
+  // Net Senior Claims in BTC = (Debt + Preferred - Cash) / BTC Price
+  cebePerShare: number;          // net BTC per diluted share after all senior claims
+  cebeSats: number;              // cebePerShare in satoshis (×1e8)
+  cebeYieldPct: number;          // % change in CEBE vs game start
+  startingCebePerShare: number;  // CEBE at game start for yield calc
   preferredDivAccruedMM: number; // dividends accrued but not yet paid
   isInsolvent: boolean;
   insolventReason?: string;
@@ -91,6 +96,7 @@ export class FinancialModel {
   private events: GameEvent[] = [];
   private dayCount: number = 0;
   private strcPriceHistory: number[] = [];  // last 90 daily samples
+  private startingCebePerShare: number = 0;
   private currentInterestRate: number;
 
   constructor(era: Era, startingCapitalMM?: number) {
@@ -205,13 +211,26 @@ export class FinancialModel {
     const strcMarketPrice = strcRate > 0 ? strcAnnualDiv / strcRate : STRC_PAR;
 
     // EV mNAV = Enterprise Value / BTC Value
-    // EV = market cap + total debt - cash
     const enterpriseValueMM = marketCapMM + this.balance.convertibleDebtMM + this.balance.preferredFaceValueMM - this.balance.cashMM;
     const evMNAV = btcValueMM > 0 ? enterpriseValueMM / btcValueMM : 0;
 
-    // CEBE mNAV = (Market Cap + Preferred) / BTC Value
-    // Shows total cost of equity + preferred capital relative to BTC treasury
-    const cebeMNAV = btcValueMM > 0 ? (marketCapMM + this.balance.preferredFaceValueMM) / btcValueMM : 0;
+    // CEBE (Capital-Effective Bitcoin Equivalent) — correct formula:
+    // Net Senior Claims in BTC = (Debt + Preferred - Cash) / BTC Price
+    // CEBE per Share = (Total BTC - Net Senior Claims in BTC) / Shares Outstanding
+    // This is the net BTC each common shareholder "owns" after all obligations are paid
+    const netSeniorClaimsMM = this.balance.convertibleDebtMM + this.balance.preferredFaceValueMM - this.balance.cashMM;
+    const netSeniorClaimsBTC = btcPrice > 0 ? (netSeniorClaimsMM * 1e6) / btcPrice : 0;
+    const netBTCForShareholders = this.balance.btcHeld - netSeniorClaimsBTC;
+    const cebePerShare = this.balance.sharesOutstanding > 0 ? netBTCForShareholders / this.balance.sharesOutstanding : 0;
+    const cebeSats = cebePerShare * 1e8;  // convert to satoshis
+
+    // Set starting CEBE on first tick
+    if (this.startingCebePerShare === 0 && cebePerShare !== 0) {
+      this.startingCebePerShare = cebePerShare;
+    }
+    const cebeYieldPct = this.startingCebePerShare !== 0
+      ? ((cebePerShare - this.startingCebePerShare) / Math.abs(this.startingCebePerShare)) * 100
+      : 0;
 
     return {
       btcPrice, btcValueMM, totalAssetsMM, totalLiabilitiesMM, netAssetValueMM,
@@ -221,7 +240,7 @@ export class FinancialModel {
       isInsolvent, insolventReason, preferredCoverageRatio,
       sentiment, sentimentLabel, sentimentColor, atmCooldown,
       strcRate, strcMarketPrice, strcPriceHistory: [...this.strcPriceHistory],
-      evMNAV, cebeMNAV,
+      evMNAV, cebePerShare, cebeSats, cebeYieldPct, startingCebePerShare: this.startingCebePerShare,
       preferredDivAccruedMM: this.balance.preferredDivAccruedMM,
     };
   }
