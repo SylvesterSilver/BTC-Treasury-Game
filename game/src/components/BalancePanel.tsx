@@ -11,10 +11,10 @@ interface Props {
 function Row({ label, value, color, sub }: { label: string; value: string; color?: string; sub?: string }) {
   return (
     <div className="bloomberg-row">
-      <span className="text-[#3a5070]">{label}</span>
+      <span className="text-[#6a3090]">{label}</span>
       <div className="text-right">
         <span className="font-mono font-semibold text-xs" style={{ color: color ?? '#cbd5e1' }}>{value}</span>
-        {sub && <div className="text-[#2a3a52] text-xs">{sub}</div>}
+        {sub && <div className="text-[#3a1070] text-xs">{sub}</div>}
       </div>
     </div>
   );
@@ -22,9 +22,9 @@ function Row({ label, value, color, sub }: { label: string; value: string; color
 
 function Gauge({ label, value, color, display }: { label: string; value: number; color: string; display?: string }) {
   return (
-    <div className="p-2 rounded border border-[#1a2540] bg-[#060a12]">
-      <div className="text-[#3a5070] text-xs mb-1">{label}</div>
-      <div className="w-full bg-[#0a0f1e] rounded-full h-1.5 mb-1">
+    <div className="p-2 rounded border border-[#2d0060] bg-[#04000a]">
+      <div className="text-[#6a3090] text-xs mb-1">{label}</div>
+      <div className="w-full bg-[#07000f] rounded-full h-1.5 mb-1">
         <div className="h-1.5 rounded-full transition-all duration-500"
           style={{ width: `${Math.min(value, 100)}%`, background: color }} />
       </div>
@@ -35,11 +35,11 @@ function Gauge({ label, value, color, display }: { label: string; value: number;
 
 export function BalancePanel({ balance, metrics }: Props) {
   const mNavPct = Math.min((metrics.mNAV / 4) * 100, 100);
-  const mNavColor = metrics.mNAV >= 2.5 ? '#a855f7' : metrics.mNAV >= 1.8 ? '#22c55e' : metrics.mNAV >= 1.0 ? '#f59e0b' : '#ef4444';
-  const leverageColor = metrics.leverageRatio > 1.5 ? '#ef4444' : metrics.leverageRatio > 0.7 ? '#f59e0b' : '#22c55e';
-  const runwayColor = metrics.monthsRunway < 4 ? '#ef4444' : metrics.monthsRunway < 12 ? '#f59e0b' : '#22c55e';
-  const unrealizedColor = metrics.unrealizedGainMM >= 0 ? '#22c55e' : '#ef4444';
-  const yieldColor = metrics.btcYieldPct >= 0 ? '#22c55e' : '#ef4444';
+  const mNavColor = metrics.mNAV >= 2.5 ? '#a855f7' : metrics.mNAV >= 1.8 ? '#00FF88' : metrics.mNAV >= 1.0 ? '#f59e0b' : '#FF3355';
+  const leverageColor = metrics.leverageRatio > 1.5 ? '#FF3355' : metrics.leverageRatio > 0.7 ? '#f59e0b' : '#00FF88';
+  const runwayColor = metrics.monthsRunway < 4 ? '#FF3355' : metrics.monthsRunway < 12 ? '#f59e0b' : '#00FF88';
+  const unrealizedColor = metrics.unrealizedGainMM >= 0 ? '#00FF88' : '#FF3355';
+  const yieldColor = metrics.btcYieldPct >= 0 ? '#00FF88' : '#FF3355';
 
   return (
     <div className="space-y-2 h-full overflow-y-auto pr-0.5">
@@ -74,7 +74,7 @@ export function BalancePanel({ balance, metrics }: Props) {
         <Row
           label="Cost Basis"
           value={fmtPrice(metrics.costBasisPerBTC)}
-          color="#94a3b8"
+          color="#7a5a9a"
           sub="avg price paid per BTC"
         />
         <Row
@@ -95,7 +95,7 @@ export function BalancePanel({ balance, metrics }: Props) {
             {metrics.mNAVStatus.replace(/_/g, ' ')}
           </span>
         </div>
-        <div className="w-full bg-[#0a0f1e] rounded-full h-2 mb-1">
+        <div className="w-full bg-[#07000f] rounded-full h-2 mb-1">
           <div className="mnav-bar" style={{ width: `${mNavPct}%`, background: `linear-gradient(90deg, ${mNavColor}88, ${mNavColor})` }} />
         </div>
         <div className="mt-1 text-xs rounded px-2 py-1"
@@ -109,7 +109,7 @@ export function BalancePanel({ balance, metrics }: Props) {
         <div className="section-label mb-2">📈 EQUITY</div>
         <Row label="Stock Price" value={`$${metrics.stockPrice.toFixed(2)}`} color="#F7931A" />
         <Row label="Market Cap" value={fmtMM(metrics.marketCapMM)} color="#e2e8f0" />
-        <Row label="NAV/Share" value={`$${metrics.navPerShare.toFixed(2)}`} color={metrics.navPerShare > 0 ? '#94a3b8' : '#ef4444'} />
+        <Row label="NAV/Share" value={`$${metrics.navPerShare.toFixed(2)}`} color={metrics.navPerShare > 0 ? '#7a5a9a' : '#FF3355'} />
         <Row label="Shares Out" value={`${balance.sharesOutstanding.toFixed(1)}M`} />
       </div>
 
@@ -117,15 +117,15 @@ export function BalancePanel({ balance, metrics }: Props) {
       <div className="game-card p-3">
         <div className="section-label mb-2">⚖ BALANCE SHEET</div>
         <Row label="Cash" value={fmtMM(balance.cashMM)}
-          color={balance.cashMM > 100 ? '#22c55e' : balance.cashMM > 20 ? '#f59e0b' : '#ef4444'} />
+          color={balance.cashMM > 100 ? '#00FF88' : balance.cashMM > 20 ? '#f59e0b' : '#FF3355'} />
         <Row label="Conv. Debt" value={balance.convertibleDebtMM > 0 ? fmtMM(balance.convertibleDebtMM) : 'CLEAR'}
-          color={balance.convertibleDebtMM === 0 ? '#22c55e' : '#ef4444'}
+          color={balance.convertibleDebtMM === 0 ? '#00FF88' : '#FF3355'}
           sub={balance.convertibleDebtMM > 0 ? `${(metrics.currentInterestRate * 100).toFixed(1)}% · $${(balance.convertibleDebtMM * metrics.currentInterestRate / 12).toFixed(1)}M/mo` : undefined} />
         <Row label="Preferred" value={balance.preferredFaceValueMM > 0 ? fmtMM(balance.preferredFaceValueMM) : 'NONE'}
-          color={balance.preferredFaceValueMM > 0 ? '#f59e0b' : '#22c55e'}
+          color={balance.preferredFaceValueMM > 0 ? '#f59e0b' : '#00FF88'}
           sub={balance.preferredFaceValueMM > 0 ? `$${(balance.preferredFaceValueMM * 0.115 / 12).toFixed(1)}M/mo div` : undefined} />
         <Row label="Net Asset Value" value={fmtMM(metrics.netAssetValueMM)}
-          color={metrics.netAssetValueMM > 0 ? '#22c55e' : '#ef4444'} />
+          color={metrics.netAssetValueMM > 0 ? '#00FF88' : '#FF3355'} />
         {balance.preferredDivAccruedMM > 0.01 && (
           <Row label="Div Accrued" value={fmtMM(balance.preferredDivAccruedMM)} color="#f59e0b" sub="pays monthly" />
         )}
@@ -145,7 +145,7 @@ export function BalancePanel({ balance, metrics }: Props) {
             display={metrics.monthsRunway === 999 ? '∞' : `${Math.floor(Math.min(metrics.monthsRunway, 36))}mo`} />
           <Gauge label="PREF COVER"
             value={metrics.preferredCoverageRatio === 999 ? 100 : Math.min((metrics.preferredCoverageRatio / 5) * 100, 100)}
-            color={metrics.preferredCoverageRatio > 2 ? '#22c55e' : metrics.preferredCoverageRatio > 1 ? '#f59e0b' : '#ef4444'}
+            color={metrics.preferredCoverageRatio > 2 ? '#00FF88' : metrics.preferredCoverageRatio > 1 ? '#f59e0b' : '#FF3355'}
             display={metrics.preferredCoverageRatio === 999 ? 'N/A' : `${metrics.preferredCoverageRatio.toFixed(1)}x`} />
           <Gauge label="SENTIMENT"
             value={metrics.sentiment}

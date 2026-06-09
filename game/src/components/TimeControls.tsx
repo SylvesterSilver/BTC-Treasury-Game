@@ -40,9 +40,9 @@ export function TimeControls({ speed, onSpeedChange, currentDate, daysSurvived, 
               key={s}
               className="px-3 py-1.5 text-xs font-bold rounded uppercase tracking-wider transition-all"
               style={{
-                background: isActive ? (s === 'PAUSED' ? '#1e3a5f' : '#F7931A22') : '#0f1629',
-                color: isActive ? (s === 'PAUSED' ? '#60a5fa' : '#F7931A') : '#475569',
-                border: `1px solid ${isActive ? (s === 'PAUSED' ? '#1e3a8a' : '#F7931A66') : '#1e2d4a'}`,
+                background: isActive ? (s === 'PAUSED' ? '#1e3a5f' : '#F7931A22') : '#0a0018',
+                color: isActive ? (s === 'PAUSED' ? '#00D4FF' : '#F7931A') : '#5a2080',
+                border: `1px solid ${isActive ? (s === 'PAUSED' ? '#1a0070' : '#F7931A66') : '#2d0060'}`,
               }}
               onClick={() => onSpeedChange(s)}
             >

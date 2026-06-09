@@ -1,254 +1,336 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Dancing+Script:wght@600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Dancing+Script:wght@600;700&family=Share+Tech+Mono&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ═══════════════════════════════════════════════════
+   CYBERPUNK TERMINAL — Color Tokens
+   ═══════════════════════════════════════════════════ */
+:root {
+  --bg-void:      #04000a;
+  --bg-deep:      #07000f;
+  --bg-card:      #0a0018;
+  --bg-panel:     #0d001f;
+  --border-dim:   #1a0035;
+  --border-mid:   #2d0060;
+  --border-bright:#5500cc;
+  --cyan:         #00d4ff;
+  --cyan-dim:     #004466;
+  --cyan-glow:    rgba(0,212,255,0.25);
+  --magenta:      #ff0080;
+  --magenta-dim:  #440020;
+  --magenta-glow: rgba(255,0,128,0.25);
+  --bitcoin:      #F7931A;
+  --bitcoin-glow: rgba(247,147,26,0.35);
+  --neon-green:   #00ff88;
+  --neon-red:     #ff3355;
+  --text-bright:  #e0f4ff;
+  --text-mid:     #7a5a9a;
+  --text-dim:     #3a1a5a;
+}
+
 * { box-sizing: border-box; }
 
 body {
-  background-color: #060a12;
-  color: #e2e8f0;
-  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
-  margin: 0;
-  padding: 0;
+  background-color: var(--bg-void);
+  color: var(--text-bright);
+  font-family: 'JetBrains Mono', 'Share Tech Mono', Consolas, monospace;
+  margin: 0; padding: 0;
   overflow-x: hidden;
 }
 
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: #060a12; }
-::-webkit-scrollbar-thumb { background: #1e2d4a; border-radius: 2px; }
+::-webkit-scrollbar-track { background: var(--bg-void); }
+::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 2px; }
 
-/* ── Grid background ── */
+/* ══════════════════════════════════
+   CYBERPUNK GRID BACKGROUND
+   ══════════════════════════════════ */
 .terminal-bg {
-  background-color: #060a12;
+  background-color: var(--bg-void);
   background-image:
-    linear-gradient(rgba(247,147,26,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(247,147,26,0.03) 1px, transparent 1px);
-  background-size: 40px 40px;
+    linear-gradient(rgba(85,0,204,0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(85,0,204,0.06) 1px, transparent 1px),
+    linear-gradient(rgba(0,212,255,0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,255,0.02) 1px, transparent 1px);
+  background-size: 40px 40px, 40px 40px, 8px 8px, 8px 8px;
 }
 
-/* ── Neon glow ── */
-.glow-bitcoin { box-shadow: 0 0 24px rgba(247,147,26,0.4), 0 0 48px rgba(247,147,26,0.15); }
-.glow-green   { box-shadow: 0 0 20px rgba(52,211,153,0.3); }
-.glow-red     { box-shadow: 0 0 20px rgba(239,68,68,0.3); }
-.glow-text-bitcoin { text-shadow: 0 0 20px rgba(247,147,26,0.8); }
-.glow-text-green   { text-shadow: 0 0 12px rgba(52,211,153,0.6); }
-.glow-text-red     { text-shadow: 0 0 12px rgba(239,68,68,0.6); }
+/* CRT scanlines overlay */
+.terminal-bg::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.08) 2px,
+    rgba(0,0,0,0.08) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
 
-/* ── Cards ── */
+/* ══════════════════════════════════
+   GLOW EFFECTS
+   ══════════════════════════════════ */
+.glow-cyan    { box-shadow: 0 0 20px var(--cyan-glow), 0 0 40px rgba(0,212,255,0.1); }
+.glow-magenta { box-shadow: 0 0 20px var(--magenta-glow); }
+.glow-bitcoin { box-shadow: 0 0 24px var(--bitcoin-glow), 0 0 48px rgba(247,147,26,0.15); }
+.glow-green   { box-shadow: 0 0 16px rgba(0,255,136,0.3); }
+.glow-red     { box-shadow: 0 0 16px rgba(255,51,85,0.3); }
+
+.glow-text-cyan    { text-shadow: 0 0 12px var(--cyan), 0 0 24px rgba(0,212,255,0.5); }
+.glow-text-magenta { text-shadow: 0 0 12px var(--magenta), 0 0 24px rgba(255,0,128,0.4); }
+.glow-text-bitcoin { text-shadow: 0 0 16px var(--bitcoin), 0 0 32px rgba(247,147,26,0.4); }
+.glow-text-green   { text-shadow: 0 0 10px var(--neon-green); }
+.glow-text-red     { text-shadow: 0 0 10px var(--neon-red); }
+
+/* ══════════════════════════════════
+   CARDS
+   ══════════════════════════════════ */
 .game-card {
-  background: #0a0f1e;
-  border: 1px solid #1a2540;
-  border-radius: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-mid);
+  border-radius: 4px;
   transition: border-color 0.2s;
 }
-.game-card:hover { border-color: #2a3f6a; }
+.game-card:hover { border-color: var(--border-bright); }
 
 .card-bitcoin {
-  background: linear-gradient(135deg, #0f1a0a 0%, #0a0f1e 100%);
-  border: 1px solid #F7931A44;
-  border-radius: 6px;
+  background: linear-gradient(135deg, #0a0500 0%, var(--bg-card) 100%);
+  border: 1px solid rgba(247,147,26,0.3);
+  border-radius: 4px;
 }
 
-/* ── Hero stock price ── */
+.card-cyan {
+  background: linear-gradient(135deg, #00050f 0%, var(--bg-card) 100%);
+  border: 1px solid rgba(0,212,255,0.25);
+  border-radius: 4px;
+}
+
+/* ══════════════════════════════════
+   HERO STOCK PRICE
+   ══════════════════════════════════ */
 .stock-price-hero {
-  font-size: 3.5rem;
+  font-size: 3rem;
   font-weight: 700;
-  font-family: 'JetBrains Mono', monospace;
-  color: #F7931A;
-  text-shadow: 0 0 30px rgba(247,147,26,0.7), 0 0 60px rgba(247,147,26,0.3);
-  letter-spacing: -0.02em;
+  font-family: 'Share Tech Mono', 'JetBrains Mono', monospace;
+  color: var(--cyan);
+  text-shadow: 0 0 20px var(--cyan), 0 0 40px rgba(0,212,255,0.4), 0 0 80px rgba(0,212,255,0.15);
+  letter-spacing: 0.02em;
   line-height: 1;
 }
 
-/* ── BTC price ticker ── */
-.btc-price-ticker {
-  font-size: 1.5rem;
+/* ══════════════════════════════════
+   SECTION LABELS
+   ══════════════════════════════════ */
+.section-label {
+  font-size: 0.6rem;
   font-weight: 700;
-  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  font-family: 'Share Tech Mono', monospace;
 }
 
-/* ── Buttons ── */
+/* ══════════════════════════════════
+   BUTTONS — Cyberpunk style
+   ══════════════════════════════════ */
 .btn-bitcoin {
   background: linear-gradient(135deg, #F7931A, #e07800);
   color: #000;
-  font-weight: 700;
+  font-weight: 800;
   border: none;
-  border-radius: 5px;
+  border-radius: 3px;
   padding: 10px 20px;
   cursor: pointer;
   transition: all 0.15s;
-  font-family: inherit;
+  font-family: 'Share Tech Mono', monospace;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
   font-size: 0.75rem;
-  box-shadow: 0 2px 12px rgba(247,147,26,0.3);
+  box-shadow: 0 0 16px rgba(247,147,26,0.35), inset 0 1px 0 rgba(255,255,255,0.2);
 }
 .btn-bitcoin:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 24px rgba(247,147,26,0.5);
+  box-shadow: 0 0 30px rgba(247,147,26,0.6), inset 0 1px 0 rgba(255,255,255,0.2);
 }
 .btn-bitcoin:active:not(:disabled) { transform: translateY(0); }
-.btn-bitcoin:disabled { opacity: 0.35; cursor: not-allowed; }
+.btn-bitcoin:disabled { opacity: 0.3; cursor: not-allowed; }
 
 .btn-smash {
-  background: linear-gradient(135deg, #22c55e, #16a34a);
+  background: linear-gradient(135deg, #00aacc, #007799);
   color: #000;
   font-weight: 800;
   border: none;
-  border-radius: 5px;
+  border-radius: 3px;
   padding: 12px 20px;
   cursor: pointer;
   transition: all 0.15s;
-  font-family: inherit;
+  font-family: 'Share Tech Mono', monospace;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   font-size: 0.8rem;
-  box-shadow: 0 2px 12px rgba(34,197,94,0.3);
+  box-shadow: 0 0 16px rgba(0,212,255,0.3), inset 0 1px 0 rgba(255,255,255,0.15);
   width: 100%;
 }
 .btn-smash:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 24px rgba(34,197,94,0.5);
+  box-shadow: 0 0 30px rgba(0,212,255,0.55), inset 0 1px 0 rgba(255,255,255,0.15);
 }
-.btn-smash:active:not(:disabled) {
-  transform: scale(0.97);
-  box-shadow: 0 0 30px rgba(34,197,94,0.6);
-}
-.btn-smash:disabled { opacity: 0.35; cursor: not-allowed; }
+.btn-smash:active:not(:disabled) { transform: scale(0.97); }
+.btn-smash:disabled { opacity: 0.3; cursor: not-allowed; }
 
 .btn-green {
-  background: linear-gradient(135deg, #16a34a, #15803d);
-  color: #fff;
+  background: linear-gradient(135deg, #00cc66, #009944);
+  color: #000;
   font-weight: 700;
   border: none;
-  border-radius: 5px;
+  border-radius: 3px;
   padding: 10px 20px;
   cursor: pointer;
   transition: all 0.15s;
-  font-family: inherit;
+  font-family: 'Share Tech Mono', monospace;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   font-size: 0.75rem;
+  box-shadow: 0 0 12px rgba(0,255,136,0.25);
 }
-.btn-green:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(22,163,74,0.4); }
-.btn-green:disabled { opacity: 0.35; cursor: not-allowed; }
+.btn-green:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 0 24px rgba(0,255,136,0.45); }
+.btn-green:disabled { opacity: 0.3; cursor: not-allowed; }
 
 .btn-red {
-  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  background: linear-gradient(135deg, #cc0033, #990022);
   color: #fff;
   font-weight: 700;
   border: none;
-  border-radius: 5px;
+  border-radius: 3px;
   padding: 10px 20px;
   cursor: pointer;
   transition: all 0.15s;
-  font-family: inherit;
+  font-family: 'Share Tech Mono', monospace;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   font-size: 0.75rem;
+  box-shadow: 0 0 12px rgba(255,51,85,0.25);
 }
-.btn-red:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(220,38,38,0.4); }
-.btn-red:disabled { opacity: 0.35; cursor: not-allowed; }
+.btn-red:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 0 24px rgba(255,51,85,0.45); }
+.btn-red:disabled { opacity: 0.3; cursor: not-allowed; }
 
 .btn-outline {
   background: transparent;
-  color: #64748b;
+  color: var(--text-mid);
   font-weight: 600;
-  border: 1px solid #1a2540;
-  border-radius: 5px;
+  border: 1px solid var(--border-mid);
+  border-radius: 3px;
   padding: 10px 20px;
   cursor: pointer;
   transition: all 0.2s;
-  font-family: inherit;
+  font-family: 'Share Tech Mono', monospace;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   font-size: 0.75rem;
 }
-.btn-outline:hover:not(:disabled) { border-color: #F7931A; color: #F7931A; }
-.btn-outline:disabled { opacity: 0.35; cursor: not-allowed; }
+.btn-outline:hover:not(:disabled) {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  box-shadow: 0 0 12px rgba(0,212,255,0.2);
+}
+.btn-outline:disabled { opacity: 0.3; cursor: not-allowed; }
 
-/* ── Trade flash animations ── */
+/* ══════════════════════════════════
+   TRADE FLASH ANIMATIONS
+   ══════════════════════════════════ */
 @keyframes flash-buy {
-  0%   { box-shadow: 0 0 0 0 rgba(247,147,26,0); background: #0a0f1e; }
-  20%  { box-shadow: 0 0 60px 20px rgba(247,147,26,0.6); background: rgba(247,147,26,0.15); }
-  100% { box-shadow: 0 0 0 0 rgba(247,147,26,0); background: #0a0f1e; }
+  0%   { box-shadow: none; background: var(--bg-card); }
+  15%  { box-shadow: 0 0 80px 20px rgba(247,147,26,0.7); background: rgba(247,147,26,0.12); }
+  100% { box-shadow: none; background: var(--bg-card); }
 }
 @keyframes flash-sell {
-  0%   { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
-  20%  { box-shadow: 0 0 60px 20px rgba(239,68,68,0.7); background: rgba(239,68,68,0.2); }
-  100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); background: #0a0f1e; }
+  0%   { box-shadow: none; }
+  15%  { box-shadow: 0 0 80px 20px rgba(255,0,128,0.7); background: rgba(255,0,128,0.15); }
+  100% { box-shadow: none; background: var(--bg-card); }
 }
 @keyframes flash-atm {
-  0%   { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
-  20%  { box-shadow: 0 0 40px 10px rgba(34,197,94,0.5); background: rgba(34,197,94,0.1); }
-  100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); background: #0a0f1e; }
+  0%   { box-shadow: none; }
+  15%  { box-shadow: 0 0 60px 10px rgba(0,212,255,0.6); background: rgba(0,212,255,0.08); }
+  100% { box-shadow: none; background: var(--bg-card); }
 }
-.flash-buy  { animation: flash-buy  0.8s ease-out; }
-.flash-sell { animation: flash-sell 0.8s ease-out; }
-.flash-atm  { animation: flash-atm  0.8s ease-out; }
+.flash-buy  { animation: flash-buy  0.9s ease-out; }
+.flash-sell { animation: flash-sell 0.9s ease-out; }
+.flash-atm  { animation: flash-atm  0.9s ease-out; }
 
-/* ── Bitcoin rain ── */
+/* ── Bitcoin particle ── */
 @keyframes btc-float {
-  0%   { transform: translateY(0) rotate(0deg); opacity: 0.7; }
-  100% { transform: translateY(-120px) rotate(360deg); opacity: 0; }
+  0%   { transform: translateY(0) rotate(0deg) scale(1); opacity: 0.9; }
+  100% { transform: translateY(-130px) rotate(540deg) scale(0.3); opacity: 0; }
 }
 .btc-particle {
   position: absolute;
   pointer-events: none;
-  font-size: 1.2rem;
-  animation: btc-float 1.2s ease-out forwards;
+  font-size: 1.1rem;
+  animation: btc-float 1.3s ease-out forwards;
   z-index: 100;
-  color: #F7931A;
-  text-shadow: 0 0 10px rgba(247,147,26,0.8);
+  color: var(--bitcoin);
+  text-shadow: 0 0 12px var(--bitcoin);
 }
 
-/* ── Stock crash animation ── */
+/* ── Stock crash ── */
 @keyframes stock-crash {
-  0%   { color: #ef4444; transform: scale(1.1); }
-  50%  { color: #ff0000; transform: scale(0.95); }
-  100% { color: inherit; transform: scale(1); }
+  0%   { color: var(--neon-red); transform: scale(1.05); text-shadow: 0 0 20px var(--neon-red); }
+  100% { color: var(--cyan); transform: scale(1); }
 }
-.stock-crash { animation: stock-crash 0.6s ease-out; }
+.stock-crash { animation: stock-crash 0.7s ease-out; }
 
 /* ── Ticker pulse ── */
 @keyframes ticker-pulse {
   0%, 100% { opacity: 1; }
-  50%       { opacity: 0.5; }
+  50%       { opacity: 0.4; }
 }
-.ticker-live { animation: ticker-pulse 1.5s ease-in-out infinite; }
+.ticker-live { animation: ticker-pulse 1.4s ease-in-out infinite; }
+
+/* ── Glitch flicker ── */
+@keyframes glitch {
+  0%, 95%, 100% { opacity: 1; transform: none; }
+  96% { opacity: 0.8; transform: translateX(2px); filter: hue-rotate(90deg); }
+  97% { opacity: 0.9; transform: translateX(-2px); }
+  98% { opacity: 1;   transform: none; }
+}
+.glitch { animation: glitch 8s ease-in-out infinite; }
 
 /* ── mNAV bar ── */
-.mnav-bar {
-  height: 8px;
-  border-radius: 4px;
-  transition: width 0.6s ease;
-}
+.mnav-bar { height: 8px; border-radius: 2px; transition: width 0.6s ease; }
+.sentiment-bar { height: 5px; border-radius: 2px; transition: width 0.5s ease; }
 
-/* ── Sentiment bar ── */
-.sentiment-bar {
-  height: 6px;
-  border-radius: 3px;
-  transition: width 0.5s ease;
-}
-
-/* ── Bloomberg grid lines ── */
+/* ══════════════════════════════════
+   BLOOMBERG ROWS
+   ══════════════════════════════════ */
 .bloomberg-row {
   display: flex;
   justify-content: space-between;
   padding: 4px 0;
-  border-bottom: 1px solid rgba(30,45,74,0.5);
+  border-bottom: 1px solid rgba(45,0,96,0.5);
   font-size: 0.7rem;
 }
 .bloomberg-row:last-child { border-bottom: none; }
 
-/* ── Modal ── */
+/* ══════════════════════════════════
+   PRICE UP/DOWN
+   ══════════════════════════════════ */
+.price-up   { color: var(--neon-green); }
+.price-down { color: var(--neon-red); }
+
+/* ══════════════════════════════════
+   MODAL
+   ══════════════════════════════════ */
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.85);
+  background: rgba(2,0,8,0.92);
   backdrop-filter: blur(6px);
   z-index: 50;
   display: flex;
@@ -256,56 +338,66 @@ body {
   justify-content: center;
 }
 
-/* ── Input styling ── */
-input[type="range"] { accent-color: #F7931A; }
-input[type="number"] {
-  -moz-appearance: textfield;
+/* ══════════════════════════════════
+   PLAY BUTTON PULSE
+   ══════════════════════════════════ */
+@keyframes play-pulse {
+  0%, 100% { box-shadow: 0 0 30px rgba(247,147,26,0.5), 0 0 60px rgba(247,147,26,0.2); }
+  50%       { box-shadow: 0 0 50px rgba(247,147,26,0.9), 0 0 100px rgba(247,147,26,0.35), 0 0 150px rgba(255,0,128,0.1); }
 }
-input[type="number"]::-webkit-outer-spin-button,
-input[type="number"]::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-}
+.play-btn-pulse { animation: play-pulse 2s ease-in-out infinite; }
 
-/* ── Section labels ── */
-.section-label {
-  font-size: 0.6rem;
-  font-weight: 700;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  color: #3a5070;
-}
+/* ══════════════════════════════════
+   CURSIVE CREDIT
+   ══════════════════════════════════ */
+.font-cursive { font-family: 'Dancing Script', cursive; }
 
-/* ── Price up/down colors ── */
-.price-up   { color: #22c55e; }
-.price-down { color: #ef4444; }
-
-/* ── Blinking dot ── */
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0; }
-}
-.blink { animation: blink 1s step-end infinite; }
-
-/* ── Era card hover ── */
+/* ══════════════════════════════════
+   ERA CARDS
+   ══════════════════════════════════ */
 .era-card {
-  background: #0a0f1e;
-  border: 1px solid #1a2540;
-  border-radius: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-mid);
+  border-radius: 4px;
   transition: all 0.2s;
   cursor: pointer;
 }
-.era-card:hover { transform: translateY(-2px); }
 
-/* ── Play button pulse ── */
-@keyframes play-pulse {
-  0%, 100% { box-shadow: 0 0 40px rgba(247,147,26,0.5), 0 0 80px rgba(247,147,26,0.2); }
-  50%       { box-shadow: 0 0 60px rgba(247,147,26,0.8), 0 0 120px rgba(247,147,26,0.35); }
+/* ══════════════════════════════════
+   INPUTS
+   ══════════════════════════════════ */
+input[type="range"] { accent-color: var(--cyan); }
+input[type="number"] { -moz-appearance: textfield; }
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+/* ══════════════════════════════════
+   NEON BORDER GRADIENT (holographic)
+   ══════════════════════════════════ */
+.holo-border {
+  border: 1px solid transparent;
+  background-clip: padding-box;
+  position: relative;
 }
-.play-btn-pulse {
-  animation: play-pulse 2s ease-in-out infinite;
+.holo-border::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, var(--cyan), var(--magenta), var(--bitcoin), var(--cyan));
+  background-size: 300% 300%;
+  animation: holo-rotate 4s linear infinite;
+  z-index: -1;
+  opacity: 0.6;
+}
+@keyframes holo-rotate {
+  0%   { background-position: 0% 50%; }
+  100% { background-position: 300% 50%; }
 }
 
-/* ── Mobile touch improvements ── */
+/* ══════════════════════════════════
+   MOBILE
+   ══════════════════════════════════ */
 @media (max-width: 768px) {
   .btn-bitcoin, .btn-green, .btn-red, .btn-smash, .btn-outline {
     padding: 12px 16px;
@@ -313,18 +405,29 @@ input[type="number"]::-webkit-inner-spin-button {
     min-height: 44px;
   }
   input[type="number"] {
-    font-size: 16px; /* prevents iOS zoom on focus */
+    font-size: 16px;
     min-height: 44px;
   }
-  .game-card {
-    border-radius: 8px;
-  }
-  .stock-price-hero {
-    font-size: 2.2rem;
-  }
+  .stock-price-hero { font-size: 2rem; }
 }
 
-/* ── Cursive credit ── */
-.font-cursive {
-  font-family: 'Dancing Script', cursive;
+/* ══════════════════════════════════
+   QUICK BUTTON
+   ══════════════════════════════════ */
+.quick-btn {
+  font-size: 0.7rem;
+  padding: 4px 8px;
+  border-radius: 3px;
+  border: 1px solid var(--border-mid);
+  color: var(--text-mid);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: 'Share Tech Mono', monospace;
+  letter-spacing: 0.05em;
+}
+.quick-btn:hover {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  box-shadow: 0 0 8px rgba(0,212,255,0.2);
 }

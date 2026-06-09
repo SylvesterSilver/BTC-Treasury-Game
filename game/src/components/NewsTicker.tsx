@@ -12,11 +12,11 @@ interface Props {
 }
 
 const TYPE_COLORS: Record<string, string> = {
-  BULLISH: '#22c55e',
-  BEARISH: '#ef4444',
+  BULLISH: '#00FF88',
+  BEARISH: '#FF3355',
   MACRO: '#f59e0b',
-  NEUTRAL: '#60a5fa',
-  FILLER: '#3a5070',
+  NEUTRAL: '#00D4FF',
+  FILLER: '#6a3090',
 };
 
 const TYPE_PREFIXES: Record<string, string> = {
@@ -67,7 +67,7 @@ export function NewsTicker({ activeEvent }: Props) {
   const displayItems = [...items, ...items]; // duplicate for seamless loop
 
   return (
-    <div className="border-t border-[#1a2540] bg-[#04070f] overflow-hidden flex-shrink-0" style={{ height: 28 }}>
+    <div className="border-t border-[#2d0060] bg-[#030008] overflow-hidden flex-shrink-0" style={{ height: 28 }}>
       <div
         ref={tickerRef}
         className="flex items-center gap-0 h-full"
@@ -82,8 +82,8 @@ export function NewsTicker({ activeEvent }: Props) {
           return (
             <span key={`${item.id}_${i}`} className="flex items-center gap-2 px-6 text-xs font-mono whitespace-nowrap">
               <span className="font-bold text-xs" style={{ color }}>{prefix}</span>
-              <span style={{ color: item.type === 'FILLER' ? '#2a3a52' : '#cbd5e1' }}>{item.text}</span>
-              <span className="text-[#1a2540] mx-2">·</span>
+              <span style={{ color: item.type === 'FILLER' ? '#3a1070' : '#cbd5e1' }}>{item.text}</span>
+              <span className="text-[#2d0060] mx-2">·</span>
             </span>
           );
         })}

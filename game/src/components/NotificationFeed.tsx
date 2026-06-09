@@ -5,10 +5,10 @@ interface Props {
 }
 
 const typeStyles: Record<Notification['type'], { color: string; bg: string; icon: string }> = {
-  success: { color: '#22c55e', bg: '#052e16', icon: '✓' },
-  error:   { color: '#ef4444', bg: '#2d0000', icon: '✕' },
+  success: { color: '#00FF88', bg: '#052e16', icon: '✓' },
+  error:   { color: '#FF3355', bg: '#2d0000', icon: '✕' },
   warning: { color: '#f59e0b', bg: '#1c0d00', icon: '⚠' },
-  info:    { color: '#60a5fa', bg: '#0a1628', icon: '◆' },
+  info:    { color: '#00D4FF', bg: '#0a1628', icon: '◆' },
 };
 
 export function NotificationFeed({ notifications }: Props) {

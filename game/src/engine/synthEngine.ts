@@ -224,4 +224,98 @@ export class SynthEngine {
     sparkOsc.stop(sparkT + 0.3);
   }
 
+  // 80s ATM sound — mechanical synth "ka-CHING" with descending wobble
+  playATMSound(volume: number = 0.9) {
+    if (!this.ctx || !this.master) return;
+    const now = this.ctx.currentTime;
+
+    // 1. Mechanical "chunk" — filtered noise burst
+    const bufLen = this.ctx.sampleRate * 0.08;
+    const noiseBuffer = this.ctx.createBuffer(1, bufLen, this.ctx.sampleRate);
+    const data = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufLen, 3);
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = noiseBuffer;
+    const noiseFilter = this.ctx.createBiquadFilter();
+    noiseFilter.type = 'bandpass';
+    noiseFilter.frequency.value = 800;
+    noiseFilter.Q.value = 3;
+    const noiseGain = this.ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.3 * volume, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+    noise.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(this.master);
+    noise.start(now); noise.stop(now + 0.09);
+
+    // 2. 80s synthwave STAB chord — minor for "spending" feel
+    const stabNotes = [220, 261.63, 329.63]; // Am chord
+    stabNotes.forEach((freq, i) => {
+      const t = now + 0.03 + i * 0.02;
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.1 * volume, t + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+      osc.connect(gain); gain.connect(this.master!);
+      osc.start(t); osc.stop(t + 0.25);
+    });
+
+    // 3. Descending "money flowing out" sweep
+    const sweepT = now + 0.08;
+    const sweepOsc = this.ctx.createOscillator();
+    const sweepGain = this.ctx.createGain();
+    sweepOsc.type = 'sine';
+    sweepOsc.frequency.setValueAtTime(880, sweepT);
+    sweepOsc.frequency.exponentialRampToValueAtTime(110, sweepT + 0.35);
+    sweepGain.gain.setValueAtTime(0.14 * volume, sweepT);
+    sweepGain.gain.exponentialRampToValueAtTime(0.001, sweepT + 0.4);
+    sweepOsc.connect(sweepGain); sweepGain.connect(this.master!);
+    sweepOsc.start(sweepT); sweepOsc.stop(sweepT + 0.45);
+
+    // 4. Punchy bass hit
+    const bassOsc = this.ctx.createOscillator();
+    const bassGain = this.ctx.createGain();
+    bassOsc.type = 'sine';
+    bassOsc.frequency.setValueAtTime(110, now + 0.05);
+    bassOsc.frequency.exponentialRampToValueAtTime(40, now + 0.2);
+    bassGain.gain.setValueAtTime(0.2 * volume, now + 0.05);
+    bassGain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+    bassOsc.connect(bassGain); bassGain.connect(this.master!);
+    bassOsc.start(now + 0.05); bassOsc.stop(now + 0.3);
+  }
+
+  // Sell BTC sound — descending doom synth
+  playSellSound(volume: number = 0.8) {
+    if (!this.ctx || !this.master) return;
+    const now = this.ctx.currentTime;
+
+    // Descending minor arpeggio — feels like dropping value
+    const notes = [440, 349.23, 261.63, 196]; // Am descending
+    const noteLen = 0.08;
+    notes.forEach((freq, i) => {
+      const t = now + i * noteLen;
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.12 * volume, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + noteLen * 1.5);
+      osc.connect(gain); gain.connect(this.master!);
+      osc.start(t); osc.stop(t + noteLen * 2);
+    });
+
+    // Low rumble at the end
+    const rumbleT = now + notes.length * noteLen;
+    const rumble = this.ctx.createOscillator();
+    const rumbleGain = this.ctx.createGain();
+    rumble.type = 'sine';
+    rumble.frequency.setValueAtTime(80, rumbleT);
+    rumble.frequency.linearRampToValueAtTime(30, rumbleT + 0.4);
+    rumbleGain.gain.setValueAtTime(0.18 * volume, rumbleT);
+    rumbleGain.gain.exponentialRampToValueAtTime(0.001, rumbleT + 0.5);
+    rumble.connect(rumbleGain); rumbleGain.connect(this.master!);
+    rumble.start(rumbleT); rumble.stop(rumbleT + 0.55);
+  }
+
 }

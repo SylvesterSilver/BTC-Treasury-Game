@@ -17,7 +17,7 @@ interface Props {
 function Quick({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
-      className="text-xs px-2 py-1 rounded border border-[#1a2540] text-[#3a5070] hover:border-bitcoin hover:text-bitcoin transition-colors font-mono"
+      className="text-xs px-2 py-1 rounded border border-[#2d0060] text-[#6a3090] hover:border-bitcoin hover:text-bitcoin transition-colors font-mono"
       onClick={onClick}
     >{label}</button>
   );
@@ -33,9 +33,9 @@ export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueComm
 
   const TABS: { id: ActionTab; label: string; color: string }[] = [
     { id: 'BUY_BTC',   label: '₿ STACK',   color: '#F7931A' },
-    { id: 'ATM',       label: '📈 ATM',     color: '#22c55e' },
+    { id: 'ATM',       label: '📈 ATM',     color: '#00FF88' },
     { id: 'PREFERRED', label: '💎 PREF',    color: '#a855f7' },
-    { id: 'DEBT',      label: '🔓 DEBT',    color: '#ef4444' },
+    { id: 'DEBT',      label: '🔓 DEBT',    color: '#FF3355' },
   ];
 
   const atmOverheated = metrics.atmCooldown >= 75;
@@ -43,12 +43,12 @@ export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueComm
   return (
     <div className="game-card h-full flex flex-col">
       {/* Tab bar */}
-      <div className="flex border-b border-[#1a2540]">
+      <div className="flex border-b border-[#2d0060]">
         {TABS.map(t => (
           <button key={t.id}
             className="flex-1 py-2 text-xs font-bold uppercase tracking-wider transition-all"
             style={{
-              color: tab === t.id ? t.color : '#3a5070',
+              color: tab === t.id ? t.color : '#6a3090',
               borderBottom: tab === t.id ? `2px solid ${t.color}` : '2px solid transparent',
               background: tab === t.id ? `${t.color}11` : 'transparent',
             }}
@@ -64,9 +64,9 @@ export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueComm
           <>
             <div className="card-bitcoin p-3 rounded">
               <div className="text-[#F7931A] text-xs font-bold uppercase tracking-wider mb-1">₿ ACQUIRE BITCOIN</div>
-              <div className="text-[#3a5070] text-xs mb-2">
+              <div className="text-[#6a3090] text-xs mb-2">
                 Cash: <span className="text-emerald-400 font-mono">${balance.cashMM.toFixed(1)}M</span>
-                <span className="text-[#2a3a52] mx-2">·</span>
+                <span className="text-[#3a1070] mx-2">·</span>
                 Price: <span className="text-white font-mono">${metrics.btcPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
               </div>
               <div className="flex flex-wrap gap-1 mb-2">
@@ -77,7 +77,7 @@ export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueComm
               </div>
               <div className="flex gap-2">
                 <input
-                  className="flex-1 bg-[#060a12] border border-[#1a2540] rounded px-3 py-2 text-sm font-mono text-white focus:border-bitcoin focus:outline-none"
+                  className="flex-1 bg-[#04000a] border border-[#2d0060] rounded px-3 py-2 text-sm font-mono text-white focus:border-bitcoin focus:outline-none"
                   placeholder="$M to spend"
                   type="number"
                   value={buyAmt}
@@ -90,7 +90,7 @@ export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueComm
                 </button>
               </div>
               {buyAmt && parseFloat(buyAmt) > 0 && (
-                <div className="text-xs text-[#3a5070] mt-1 font-mono">
+                <div className="text-xs text-[#6a3090] mt-1 font-mono">
                   ≈ {((parseFloat(buyAmt) * 1e6) / metrics.btcPrice).toLocaleString(undefined, { maximumFractionDigits: 1 })} BTC
                   {parseFloat(buyAmt) >= 100 && <span className="text-bitcoin ml-2">↑ large buy moves market!</span>}
                 </div>
@@ -99,12 +99,12 @@ export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueComm
 
             <div className="p-3 rounded border border-red-900/40 bg-red-950/20">
               <div className="text-red-400 text-xs font-bold uppercase tracking-wider mb-1">⚠ SELL BTC — TANKS STOCK</div>
-              <div className="text-[#3a5070] text-xs mb-2">
+              <div className="text-[#6a3090] text-xs mb-2">
                 Held: <span className="text-bitcoin font-mono">{balance.btcHeld.toLocaleString(undefined, { maximumFractionDigits: 0 })} ₿</span>
               </div>
               <div className="flex gap-2">
                 <input
-                  className="flex-1 bg-[#060a12] border border-red-900/50 rounded px-3 py-2 text-sm font-mono text-white focus:border-red-400 focus:outline-none"
+                  className="flex-1 bg-[#04000a] border border-red-900/50 rounded px-3 py-2 text-sm font-mono text-white focus:border-red-400 focus:outline-none"
                   placeholder="BTC to sell"
                   type="number"
                   value={sellAmt}
@@ -128,8 +128,8 @@ export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueComm
         {/* ── SMASH THE ATM ── */}
         {tab === 'ATM' && (
           <>
-            <div className="p-3 rounded border bg-[#060a12]"
-              style={{ borderColor: atmOverheated ? '#ef444455' : '#1a2540' }}>
+            <div className="p-3 rounded border bg-[#04000a]"
+              style={{ borderColor: atmOverheated ? '#ef444455' : '#2d0060' }}>
               <div className="flex items-center justify-between mb-2">
                 <div className="text-emerald-400 text-xs font-bold uppercase tracking-wider">📈 ISSUE COMMON STOCK</div>
                 {atmOverheated && (
@@ -155,13 +155,13 @@ export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueComm
 
               {/* ATM cooldown bar */}
               <div className="mb-3">
-                <div className="flex justify-between text-xs text-[#3a5070] mb-1">
+                <div className="flex justify-between text-xs text-[#6a3090] mb-1">
                   <span>ATM HEAT</span>
-                  <span style={{ color: metrics.atmCooldown > 50 ? '#ef4444' : '#22c55e' }}>
+                  <span style={{ color: metrics.atmCooldown > 50 ? '#FF3355' : '#00FF88' }}>
                     {metrics.atmCooldown < 25 ? 'COOL — FIRE!' : metrics.atmCooldown < 50 ? 'WARM' : metrics.atmCooldown < 75 ? 'HOT' : 'OVERHEATED — BACK OFF!'}
                   </span>
                 </div>
-                <div className="w-full bg-[#0a0f1e] rounded-full h-2">
+                <div className="w-full bg-[#07000f] rounded-full h-2">
                   <div className="h-2 rounded-full transition-all duration-500"
                     style={{
                       width: `${metrics.atmCooldown}%`,
@@ -173,10 +173,10 @@ export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueComm
                     }}
                   />
                 </div>
-                <div className="text-xs text-[#2a3a52] mt-1">Repeated issuance hurts sentiment & depresses stock</div>
+                <div className="text-xs text-[#3a1070] mt-1">Repeated issuance hurts sentiment & depresses stock</div>
               </div>
 
-              <div className="text-[#3a5070] text-xs mb-2">
+              <div className="text-[#6a3090] text-xs mb-2">
                 Price: <span className="text-white font-mono">${metrics.stockPrice.toFixed(2)}</span>
                 <span className="mx-2">·</span>
                 Out: <span className="text-white font-mono">{balance.sharesOutstanding.toFixed(1)}M sh</span>
@@ -188,7 +188,7 @@ export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueComm
               </div>
               <div className="flex gap-2">
                 <input
-                  className="flex-1 bg-[#060a12] border border-[#1a2540] rounded px-3 py-2 text-sm font-mono text-white focus:border-emerald-400 focus:outline-none"
+                  className="flex-1 bg-[#04000a] border border-[#2d0060] rounded px-3 py-2 text-sm font-mono text-white focus:border-emerald-400 focus:outline-none"
                   placeholder="Millions of shares"
                   type="number"
                   value={shareAmt}
@@ -201,7 +201,7 @@ export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueComm
                 </button>
               </div>
               {shareAmt && parseFloat(shareAmt) > 0 && (
-                <div className="text-xs text-[#3a5070] mt-1 font-mono">
+                <div className="text-xs text-[#6a3090] mt-1 font-mono">
                   Raises ≈ ${(parseFloat(shareAmt) * metrics.stockPrice).toFixed(1)}M
                   · dilution {((parseFloat(shareAmt) / (balance.sharesOutstanding + parseFloat(shareAmt))) * 100).toFixed(1)}%
                 </div>
@@ -219,7 +219,7 @@ export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueComm
               <span className="text-red-400"> Paid monthly.</span> Catastrophic in a bear market if BTC dumps.
             </div>
             {balance.preferredFaceValueMM > 0 && (
-              <div className="text-xs text-[#3a5070] mb-3 font-mono">
+              <div className="text-xs text-[#6a3090] mb-3 font-mono">
                 Stack: <span className="text-yellow-400">${balance.preferredFaceValueMM.toFixed(0)}M</span>
                 {' → '}monthly div: <span className="text-red-400">${(balance.preferredFaceValueMM * 0.115 / 12).toFixed(1)}M</span>
               </div>
@@ -231,7 +231,7 @@ export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueComm
             </div>
             <div className="flex gap-2">
               <input
-                className="flex-1 bg-[#060a12] border border-purple-900/50 rounded px-3 py-2 text-sm font-mono text-white focus:border-purple-400 focus:outline-none"
+                className="flex-1 bg-[#04000a] border border-purple-900/50 rounded px-3 py-2 text-sm font-mono text-white focus:border-purple-400 focus:outline-none"
                 placeholder="Raise $M"
                 type="number"
                 value={prefAmt}
@@ -260,7 +260,7 @@ export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueComm
             <div className="rounded p-2 text-xs mb-3 bg-red-950/20 border border-red-800/30 text-red-300">
               6% annual interest. Paying down cleans the balance sheet, boosts NAV, and lifts mNAV. Use when BTC is expensive.
             </div>
-            <div className="text-xs text-[#3a5070] mb-3 font-mono">
+            <div className="text-xs text-[#6a3090] mb-3 font-mono">
               Debt: <span className="text-red-400">${balance.convertibleDebtMM.toFixed(0)}M</span>
               <span className="mx-2">·</span>
               Cash: <span className="text-emerald-400">${balance.cashMM.toFixed(1)}M</span>
@@ -273,7 +273,7 @@ export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueComm
             </div>
             <div className="flex gap-2">
               <input
-                className="flex-1 bg-[#060a12] border border-red-900/40 rounded px-3 py-2 text-sm font-mono text-white focus:border-red-400 focus:outline-none"
+                className="flex-1 bg-[#04000a] border border-red-900/40 rounded px-3 py-2 text-sm font-mono text-white focus:border-red-400 focus:outline-none"
                 placeholder="Amount $M"
                 type="number"
                 value={debtAmt}
