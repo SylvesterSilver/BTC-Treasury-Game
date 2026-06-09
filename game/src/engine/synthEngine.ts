@@ -318,4 +318,36 @@ export class SynthEngine {
     rumble.start(rumbleT); rumble.stop(rumbleT + 0.55);
   }
 
+  // "There is no second best" — Michael Saylor quote via Web Speech API
+  // Fires periodically while game is running (~every 90s)
+  speakSaylorQuote() {
+    if (!('speechSynthesis' in window)) return;
+    if (window.speechSynthesis.speaking) return;
+
+    const phrases = [
+      "There is no second best.",
+      "Bitcoin is the apex property of the human race.",
+      "The best time to buy Bitcoin is now.",
+      "Stack sats. Stay humble.",
+    ];
+    const phrase = phrases[Math.floor(Math.random() * phrases.length)];
+    const utterance = new SpeechSynthesisUtterance(phrase);
+    utterance.rate = 0.88;
+    utterance.pitch = 0.85;
+    utterance.volume = 0.55;
+
+    // Try to find a deep male voice
+    const voices = window.speechSynthesis.getVoices();
+    const preferred = voices.find(v =>
+      v.name.toLowerCase().includes('male') ||
+      v.name.toLowerCase().includes('david') ||
+      v.name.toLowerCase().includes('daniel') ||
+      v.name.toLowerCase().includes('alex')
+    );
+    if (preferred) utterance.voice = preferred;
+
+    // Add a short reverb effect by scheduling two slightly delayed utterances
+    window.speechSynthesis.speak(utterance);
+  }
+
 }

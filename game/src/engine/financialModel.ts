@@ -36,6 +36,11 @@ export interface GameMetrics {
   leverageRatio: number;
   currentInterestRate: number;  // live annual rate
   strcRate: number;              // live STRC dividend rate (dynamic)
+  strcMarketPrice: number;       // STRC market price ($100 par implied by rate)
+  strcPriceHistory: number[];    // recent STRC price samples for mini chart
+  evMNAV: number;                // Enterprise Value / BTC Value
+  cebeMNAV: number;              // (Market Cap + Preferred) / BTC Value
+  preferredDivAccruedMM: number; // dividends accrued but not yet paid
   isInsolvent: boolean;
   insolventReason?: string;
   preferredCoverageRatio: number;
@@ -85,6 +90,7 @@ export class FinancialModel {
   private stockPriceMultiplier: number = 1.0;
   private events: GameEvent[] = [];
   private dayCount: number = 0;
+  private strcPriceHistory: number[] = [];  // last 90 daily samples
   private currentInterestRate: number;
 
   constructor(era: Era, startingCapitalMM?: number) {
@@ -192,6 +198,21 @@ export class FinancialModel {
       insolventReason = 'Preferred dividend obligations are unrecoverable. Common stock goes to zero.';
     }
 
+    // STRC implied market price: Annual div per $100 par / strcRate
+    // Base div = $100 × 11.5% = $11.50/yr; at base rate price = $100
+    const STRC_PAR = 100;
+    const strcAnnualDiv = STRC_PAR * 0.115;  // fixed annual div per $100 par
+    const strcMarketPrice = strcRate > 0 ? strcAnnualDiv / strcRate : STRC_PAR;
+
+    // EV mNAV = Enterprise Value / BTC Value
+    // EV = market cap + total debt - cash
+    const enterpriseValueMM = marketCapMM + this.balance.convertibleDebtMM + this.balance.preferredFaceValueMM - this.balance.cashMM;
+    const evMNAV = btcValueMM > 0 ? enterpriseValueMM / btcValueMM : 0;
+
+    // CEBE mNAV = (Market Cap + Preferred) / BTC Value
+    // Shows total cost of equity + preferred capital relative to BTC treasury
+    const cebeMNAV = btcValueMM > 0 ? (marketCapMM + this.balance.preferredFaceValueMM) / btcValueMM : 0;
+
     return {
       btcPrice, btcValueMM, totalAssetsMM, totalLiabilitiesMM, netAssetValueMM,
       navPerShare, stockPrice, marketCapMM, mNAV, mNAVStatus, btcPerShare,
@@ -199,7 +220,9 @@ export class FinancialModel {
       quarterlyBurnMM, monthsRunway, leverageRatio, currentInterestRate: this.currentInterestRate,
       isInsolvent, insolventReason, preferredCoverageRatio,
       sentiment, sentimentLabel, sentimentColor, atmCooldown,
-      strcRate,
+      strcRate, strcMarketPrice, strcPriceHistory: [...this.strcPriceHistory],
+      evMNAV, cebeMNAV,
+      preferredDivAccruedMM: this.balance.preferredDivAccruedMM,
     };
   }
 
@@ -220,6 +243,14 @@ export class FinancialModel {
     if (this.atmCooldownDays > 0) this.atmCooldownDays--;
     if (this.dayCount % 30 === 0 && this.atmIssuanceCount > 0) {
       this.atmIssuanceCount = Math.max(0, this.atmIssuanceCount - 1);
+    }
+    // Sample STRC market price daily
+    if (this.dayCount % 1 === 0) {
+      const btcApprox = (this.balance.btcHeld * btcPrice) / 1e6;
+      const sr = computeSTRCRate(btcApprox, this.balance.preferredFaceValueMM);
+      const strc_p = sr > 0 ? 11.5 / sr : 100;
+      this.strcPriceHistory.push(strc_p);
+      if (this.strcPriceHistory.length > 90) this.strcPriceHistory.shift();
     }
     this.stockPriceMultiplier += (1.0 - this.stockPriceMultiplier) * 0.01;
     this.stockPriceMultiplier = Math.max(0.05, this.stockPriceMultiplier);
@@ -296,13 +327,19 @@ export class FinancialModel {
   }
 
   issuePreferredStock(proceedsMM: number, btcPrice: number): { success: boolean; reason?: string } {
-    if (proceedsMM <= 0) return { success: false, reason: 'Invalid amount.' };
-    if (proceedsMM > 2000) return { success: false, reason: 'Max $2B per issuance.' };
+    if (proceedsMM <= 0) return { success: false, reason: 'Invalid amount.' };  // no hard max — unlimited issuance
     const metrics = this.computeMetrics(btcPrice);
     if (metrics.mNAV < 0.8) return { success: false, reason: "Market won't buy preferred at this discount." };
     this.balance.preferredFaceValueMM += proceedsMM;
     this.balance.cashMM += proceedsMM;
     this.balance.preferredSharesMM += proceedsMM / PREFERRED_FACE_PER_SHARE;
+    // Issuance supply shock depresses STRC price temporarily
+    if (this.strcPriceHistory.length > 0) {
+      const shockPct = Math.min(0.15, proceedsMM / 1000 * 0.05);  // bigger issuance = more depression
+      const lastPrice = this.strcPriceHistory[this.strcPriceHistory.length - 1];
+      this.strcPriceHistory.push(lastPrice * (1 - shockPct));
+      if (this.strcPriceHistory.length > 90) this.strcPriceHistory.shift();
+    }
     return { success: true };
   }
 
