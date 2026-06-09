@@ -115,8 +115,9 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
         setStockCrashClass('stock-crash');
         setTimeout(() => setStockCrashClass(''), 700);
         setMobileTab('CHART');
+        synthRef.current.playSellSound(0.7);
       }
-      else { setFlashClass('flash-atm'); }
+      else { setFlashClass('flash-atm'); synthRef.current.playATMSound(0.8); }
       setTimeout(() => setFlashClass(''), 900);
     }
     forceUpdate();
@@ -124,7 +125,7 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
 
   const engine = engineRef.current;
   if (!engine) return (
-    <div className="min-h-screen terminal-bg flex items-center justify-center text-[#3a5070] text-sm font-mono">
+    <div className="min-h-screen terminal-bg flex items-center justify-center text-[#6a3090] text-sm font-mono">
       INITIALIZING TERMINAL...
     </div>
   );
@@ -160,92 +161,92 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
     <div className="min-h-screen terminal-bg flex flex-col" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
 
       {/* ── TOP BAR ── */}
-      <div className="border-b border-[#1a2540] px-3 py-1.5 flex items-center justify-between flex-shrink-0 bg-[#04070f]">
+      <div className="border-b border-[#2d0060] px-3 py-1.5 flex items-center justify-between flex-shrink-0 bg-[#030008]">
         <div className="flex items-center gap-2 md:gap-3">
-          <button onClick={onExitToConfig} className="text-[#2a3a52] hover:text-slate-300 text-xs transition-colors uppercase tracking-wider">← CONFIG</button>
-          <button onClick={onExitToMenu} className="text-[#1a2540] hover:text-slate-400 text-xs transition-colors uppercase tracking-wider hidden sm:block">ERAS</button>
-          <div className="h-4 w-px bg-[#1a2540]" />
+          <button onClick={onExitToConfig} className="text-[#3a1070] hover:text-slate-300 text-xs transition-colors uppercase tracking-wider">← CONFIG</button>
+          <button onClick={onExitToMenu} className="text-[#2d0060] hover:text-slate-400 text-xs transition-colors uppercase tracking-wider hidden sm:block">ERAS</button>
+          <div className="h-4 w-px bg-[#2d0060]" />
           <span className="text-bitcoin text-xs glow-text-bitcoin font-bold">₿</span>
           <span className="text-white font-bold text-xs tracking-wide hidden md:block">BITCOIN TREASURY STRATEGY SIMULATOR</span>
           <span className="text-white font-bold text-xs tracking-wide md:hidden">BTC TREASURY SIM</span>
         </div>
         <div className="flex items-center gap-2 md:gap-4 text-xs">
-          <span className="text-[#3a5070] hidden sm:block">BTC</span>
+          <span className="text-[#6a3090] hidden sm:block">BTC</span>
           <span className="text-bitcoin font-bold font-mono text-sm md:text-base glow-text-bitcoin">
             ${currentPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}
           </span>
           <span className="ticker-live text-bitcoin text-xs">●</span>
-          <span className="text-[#3a5070] font-mono text-xs hidden md:block">{currentDate}</span>
+          <span className="text-[#6a3090] font-mono text-xs hidden md:block">{currentDate}</span>
         </div>
       </div>
 
       {/* ── HERO BAND — desktop: full, mobile: compact 2x2 grid ── */}
-      <div className="border-b border-[#F7931A33] bg-gradient-to-r from-[#0a1408] via-[#060a12] to-[#0a1408] px-3 md:px-4 py-2 flex-shrink-0">
+      <div className="border-b border-[#00D4FF33] bg-gradient-to-r from-[#050008] via-[#04000a] to-[#050008] px-3 md:px-4 py-2 flex-shrink-0">
         {/* Desktop hero */}
         <div className="hidden md:flex items-center justify-between">
           <div className="flex items-center gap-5 flex-wrap">
             {/* STOCK PRICE */}
             <div>
-              <div className="section-label mb-0.5" style={{ color: '#F7931A66' }}>▶ STOCK PRICE · MAXIMIZE</div>
+              <div className="section-label mb-0.5" style={{ color: 'rgba(0,212,255,0.5)' }}>▶ STOCK PRICE · MAXIMIZE</div>
               <div className="flex items-baseline gap-2">
                 <span className={`stock-price-hero ${stockCrashClass}`}>{fmtPrice(metrics.stockPrice)}</span>
                 {Math.abs(stockChange) > 0.01 && (
-                  <span className={`text-sm font-bold ${stockUp ? 'price-up glow-text-green' : 'price-down glow-text-red'}`}>
+                  <span className={`text-sm font-bold font-mono ${stockUp ? 'price-up glow-text-green' : 'price-down glow-text-red'}`}>
                     {stockUp ? '▲' : '▼'}{Math.abs(stockChange).toFixed(2)}%
                   </span>
                 )}
               </div>
             </div>
-            <div className="h-12 w-px bg-[#1a2540]" />
+            <div className="h-12 w-px bg-[#2d0060]" />
             {/* MARKET CAP */}
             <div>
               <div className="section-label mb-0.5">MARKET CAP</div>
               <div className="text-xl font-bold font-mono text-white">{fmtMM(metrics.marketCapMM)}</div>
-              <div className="text-[#3a5070] text-xs">{balance.sharesOutstanding.toFixed(1)}M sh</div>
+              <div className="text-[#6a3090] text-xs">{balance.sharesOutstanding.toFixed(1)}M sh</div>
             </div>
-            <div className="h-12 w-px bg-[#1a2540]" />
+            <div className="h-12 w-px bg-[#2d0060]" />
             {/* mNAV */}
             <div>
               <div className="section-label mb-0.5">mNAV</div>
-              <div className="text-xl font-bold font-mono" style={{ color: metrics.mNAV >= 1.8 ? '#22c55e' : metrics.mNAV >= 1 ? '#f59e0b' : '#ef4444' }}>
+              <div className="text-xl font-bold font-mono" style={{ color: metrics.mNAV >= 1.8 ? '#00FF88' : metrics.mNAV >= 1 ? '#f59e0b' : '#FF3355' }}>
                 {metrics.mNAV.toFixed(2)}x
               </div>
-              <div className="text-[#3a5070] text-xs">{metrics.mNAVStatus.replace(/_/g, ' ')}</div>
+              <div className="text-[#6a3090] text-xs">{metrics.mNAVStatus.replace(/_/g, ' ')}</div>
             </div>
-            <div className="h-12 w-px bg-[#1a2540]" />
+            <div className="h-12 w-px bg-[#2d0060]" />
             {/* BTC */}
             <div>
               <div className="section-label mb-0.5">₿ TREASURY</div>
               <div className="text-xl font-bold font-mono text-bitcoin glow-text-bitcoin">
                 {balance.btcHeld >= 1000 ? `${(balance.btcHeld/1000).toFixed(1)}K ₿` : `${balance.btcHeld.toLocaleString(undefined,{maximumFractionDigits:0})} ₿`}
               </div>
-              <div className="text-[#3a5070] text-xs">{fmtMM(metrics.btcValueMM)}</div>
+              <div className="text-[#6a3090] text-xs">{fmtMM(metrics.btcValueMM)}</div>
             </div>
-            <div className="h-12 w-px bg-[#1a2540]" />
+            <div className="h-12 w-px bg-[#2d0060]" />
             {/* SENTIMENT */}
             <div style={{ minWidth: 110 }}>
               <div className="section-label mb-0.5">SENTIMENT</div>
               <div className="text-base font-bold" style={{ color: metrics.sentimentColor }}>{metrics.sentimentLabel}</div>
-              <div className="w-24 bg-[#0a0f1e] rounded-full h-1.5 mt-0.5">
+              <div className="w-24 bg-[#07000f] rounded-full h-1.5 mt-0.5">
                 <div className="h-1.5 rounded-full transition-all" style={{ width: `${metrics.sentiment}%`, background: metrics.sentimentColor }} />
               </div>
             </div>
-            <div className="h-12 w-px bg-[#1a2540]" />
+            <div className="h-12 w-px bg-[#2d0060]" />
             {/* RATE */}
             <div>
               <div className="section-label mb-0.5">DEBT RATE</div>
-              <div className="text-base font-bold font-mono" style={{ color: metrics.currentInterestRate >= 0.065 ? '#ef4444' : '#f59e0b' }}>
+              <div className="text-base font-bold font-mono" style={{ color: metrics.currentInterestRate >= 0.065 ? '#FF3355' : '#f59e0b' }}>
                 {(metrics.currentInterestRate * 100).toFixed(1)}%
               </div>
-              <div className="text-[#3a5070] text-xs">annual</div>
+              <div className="text-[#6a3090] text-xs">annual</div>
             </div>
           </div>
           {/* Speed + progress */}
           <div className="flex items-center gap-2 ml-4">
             <div className="text-right mr-1">
               <div className="section-label">PROGRESS</div>
-              <div className="text-[#2a3a52] text-xs font-mono">D{daysSurvived}/{totalDays}</div>
-              <div className="w-20 bg-[#0a0f1e] rounded-full h-1 mt-0.5">
+              <div className="text-[#3a1070] text-xs font-mono">D{daysSurvived}/{totalDays}</div>
+              <div className="w-20 bg-[#07000f] rounded-full h-1 mt-0.5">
                 <div className="h-1 rounded-full" style={{ width: `${progress}%`, background: 'linear-gradient(90deg,#F7931A66,#F7931A)' }} />
               </div>
             </div>
@@ -256,9 +257,9 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
                 <button key={s} onClick={() => handleSpeedChange(s)}
                   className="px-2 py-1.5 text-xs font-bold rounded uppercase tracking-wider transition-all"
                   style={{
-                    background: isActive ? (s === 'PAUSED' ? '#1e3a5f' : '#F7931A22') : '#0a0f1e',
-                    color: isActive ? (s === 'PAUSED' ? '#60a5fa' : '#F7931A') : '#3a5070',
-                    border: `1px solid ${isActive ? (s === 'PAUSED' ? '#1e3a8a' : '#F7931A66') : '#1a2540'}`,
+                    background: isActive ? (s === 'PAUSED' ? '#1e3a5f' : '#F7931A22') : '#07000f',
+                    color: isActive ? (s === 'PAUSED' ? '#00D4FF' : '#F7931A') : '#6a3090',
+                    border: `1px solid ${isActive ? (s === 'PAUSED' ? '#1a0070' : '#F7931A66') : '#2d0060'}`,
                   }}
                 >{s === 'PAUSED' ? '⏸' : cfg.label}</button>
               );
@@ -281,21 +282,21 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
               )}
             </div>
             <div>
-              <div className="text-[#3a5070] text-xs mb-0.5">MARKET CAP</div>
+              <div className="text-[#6a3090] text-xs mb-0.5">MARKET CAP</div>
               <div className="text-xl font-bold font-mono text-white">{fmtMM(metrics.marketCapMM)}</div>
-              <div className="text-[#3a5070] text-xs">mNAV <span style={{ color: metrics.mNAV >= 1.8 ? '#22c55e' : '#f59e0b' }}>{metrics.mNAV.toFixed(2)}x</span></div>
+              <div className="text-[#6a3090] text-xs">mNAV <span style={{ color: metrics.mNAV >= 1.8 ? '#00FF88' : '#f59e0b' }}>{metrics.mNAV.toFixed(2)}x</span></div>
             </div>
             <div>
-              <div className="text-[#3a5070] text-xs mb-0.5">₿ TREASURY</div>
+              <div className="text-[#6a3090] text-xs mb-0.5">₿ TREASURY</div>
               <div className="text-lg font-bold font-mono text-bitcoin">
                 {balance.btcHeld >= 1000 ? `${(balance.btcHeld/1000).toFixed(1)}K ₿` : `${balance.btcHeld.toLocaleString(undefined,{maximumFractionDigits:0})} ₿`}
               </div>
-              <div className="text-[#3a5070] text-xs">{fmtMM(metrics.btcValueMM)}</div>
+              <div className="text-[#6a3090] text-xs">{fmtMM(metrics.btcValueMM)}</div>
             </div>
             <div>
-              <div className="text-[#3a5070] text-xs mb-0.5">SENTIMENT</div>
+              <div className="text-[#6a3090] text-xs mb-0.5">SENTIMENT</div>
               <div className="text-base font-bold" style={{ color: metrics.sentimentColor }}>{metrics.sentimentLabel}</div>
-              <div className="text-[#3a5070] text-xs">{currentDate}</div>
+              <div className="text-[#6a3090] text-xs">{currentDate}</div>
             </div>
           </div>
           {/* Mobile speed controls */}
@@ -308,15 +309,15 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
                   <button key={s} onClick={() => handleSpeedChange(s)}
                     className="px-2 py-1 text-xs font-bold rounded uppercase transition-all"
                     style={{
-                      background: isActive ? (s === 'PAUSED' ? '#1e3a5f' : '#F7931A22') : '#0a0f1e',
-                      color: isActive ? (s === 'PAUSED' ? '#60a5fa' : '#F7931A') : '#3a5070',
-                      border: `1px solid ${isActive ? (s === 'PAUSED' ? '#1e3a8a' : '#F7931A66') : '#1a2540'}`,
+                      background: isActive ? (s === 'PAUSED' ? '#1e3a5f' : '#F7931A22') : '#07000f',
+                      color: isActive ? (s === 'PAUSED' ? '#00D4FF' : '#F7931A') : '#6a3090',
+                      border: `1px solid ${isActive ? (s === 'PAUSED' ? '#1a0070' : '#F7931A66') : '#2d0060'}`,
                     }}
                   >{s === 'PAUSED' ? '⏸' : cfg.label}</button>
                 );
               })}
             </div>
-            <div className="text-[#2a3a52] text-xs font-mono">D{daysSurvived}/{totalDays}</div>
+            <div className="text-[#3a1070] text-xs font-mono">D{daysSurvived}/{totalDays}</div>
           </div>
         </div>
       </div>
@@ -400,12 +401,12 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
           </div>
 
           {/* Mobile bottom tab bar */}
-          <div className="flex border-t border-[#1a2540] bg-[#04070f] flex-shrink-0">
+          <div className="flex border-t border-[#2d0060] bg-[#030008] flex-shrink-0">
             {MOBILE_TABS.map(tab => (
               <button key={tab.id}
                 className="flex-1 py-3 flex flex-col items-center gap-0.5 transition-all"
                 style={{
-                  color: mobileTab === tab.id ? '#F7931A' : '#3a5070',
+                  color: mobileTab === tab.id ? '#F7931A' : '#6a3090',
                   background: mobileTab === tab.id ? '#F7931A11' : 'transparent',
                   borderTop: mobileTab === tab.id ? '2px solid #F7931A' : '2px solid transparent',
                 }}
@@ -420,8 +421,8 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
       </div>
 
       {/* ── DONATE QR + NEWS TICKER ── */}
-      <div className="flex items-stretch border-t border-[#1a2540] bg-[#04070f] flex-shrink-0">
-        <div className="flex-shrink-0 border-r border-[#1a2540] hidden sm:flex items-center px-2 py-1">
+      <div className="flex items-stretch border-t border-[#2d0060] bg-[#030008] flex-shrink-0">
+        <div className="flex-shrink-0 border-r border-[#2d0060] hidden sm:flex items-center px-2 py-1">
           <DonateQR />
         </div>
         <div className="flex-1 overflow-hidden">

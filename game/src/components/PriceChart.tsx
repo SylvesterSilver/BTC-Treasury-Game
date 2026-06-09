@@ -45,8 +45,8 @@ const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<
   const d = payload[0]?.payload;
   if (!d) return null;
   return (
-    <div style={{ background: '#0a0f1e', border: '1px solid #1a2540', borderRadius: 6, padding: '8px 12px', fontFamily: 'monospace', fontSize: 11 }}>
-      <div style={{ color: '#3a5070', marginBottom: 4 }}>Day {d.day}</div>
+    <div style={{ background: '#07000f', border: '1px solid #2d0060', borderRadius: 6, padding: '8px 12px', fontFamily: 'monospace', fontSize: 11 }}>
+      <div style={{ color: '#6a3090', marginBottom: 4 }}>Day {d.day}</div>
       {d.price !== undefined && (
         <div style={{ color: '#F7931A', fontWeight: 700 }}>₿ {formatPrice(d.price)}</div>
       )}
@@ -110,19 +110,19 @@ export function PriceChart({ priceHistory, conePoints, currentPrice, isHistorica
         {/* Left: label + price */}
         <div>
           <div className="flex items-center gap-2 mb-0.5">
-            <span style={{ color: '#F7931A', fontWeight: 800, fontSize: '0.65rem', letterSpacing: '0.15em', fontFamily: 'monospace' }}>
+            <span style={{ color: 'var(--cyan)', fontWeight: 800, fontSize: '0.65rem', letterSpacing: '0.15em', fontFamily: 'monospace' }}>
               ₿  BTC / USD
             </span>
-            <span style={{ color: '#1a2540', fontSize: '0.65rem', fontFamily: 'monospace' }}>LOG SCALE</span>
+            <span style={{ color: '#2d0060', fontSize: '0.65rem', fontFamily: 'monospace' }}>LOG SCALE</span>
           </div>
-          <div style={{ color: '#F7931A', fontWeight: 700, fontSize: '1.4rem', fontFamily: 'monospace', lineHeight: 1, textShadow: '0 0 20px rgba(247,147,26,0.6)' }}>
+          <div style={{ color: 'var(--bitcoin)', fontWeight: 700, fontSize: '1.4rem', fontFamily: 'monospace', lineHeight: 1, textShadow: '0 0 20px rgba(247,147,26,0.6)' }}>
             {formatPrice(currentPrice)}
           </div>
         </div>
         {/* Right: status */}
         <div className="text-right">
           {isHistorical ? (
-            <span style={{ color: '#3a5070', fontSize: '0.6rem', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+            <span style={{ color: '#6a3090', fontSize: '0.6rem', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
               HISTORICAL
             </span>
           ) : (
@@ -132,7 +132,7 @@ export function PriceChart({ priceHistory, conePoints, currentPrice, isHistorica
             </span>
           )}
           {!isHistorical && (
-            <div style={{ color: '#2a3a52', fontSize: '0.55rem', fontFamily: 'monospace', marginTop: 2 }}>
+            <div style={{ color: '#3a1070', fontSize: '0.55rem', fontFamily: 'monospace', marginTop: 2 }}>
               cone = 80% CI
             </div>
           )}
@@ -157,16 +157,16 @@ export function PriceChart({ priceHistory, conePoints, currentPrice, isHistorica
 
           <XAxis
             dataKey="day"
-            tick={{ fill: '#2a3a52', fontSize: 9, fontFamily: 'monospace' }}
+            tick={{ fill: '#3a1070', fontSize: 9, fontFamily: 'monospace' }}
             tickLine={false}
-            axisLine={{ stroke: '#1a2540' }}
+            axisLine={{ stroke: '#2d0060' }}
             interval="preserveStartEnd"
             tickFormatter={(v: number) => `D${v}`}
           />
           <YAxis
             scale="log"
             domain={[yMin, yMax]}
-            tick={{ fill: '#2a3a52', fontSize: 9, fontFamily: 'monospace' }}
+            tick={{ fill: '#3a1070', fontSize: 9, fontFamily: 'monospace' }}
             tickLine={false}
             axisLine={false}
             tickFormatter={formatPrice}
@@ -177,17 +177,17 @@ export function PriceChart({ priceHistory, conePoints, currentPrice, isHistorica
           {/* "NOW" reference line */}
           <ReferenceLine
             x={currentDay}
-            stroke="#F7931A"
+            stroke="var(--cyan)"
             strokeWidth={1}
             strokeDasharray="3 3"
-            opacity={0.35}
-            label={{ value: 'NOW', position: 'top', fill: '#F7931A88', fontSize: 8, fontFamily: 'monospace' }}
+            opacity={0.4}
+            label={{ value: 'NOW', position: 'top', fill: 'rgba(0,212,255,0.6)', fontSize: 8, fontFamily: 'monospace' }}
           />
 
           {/* Cone upper */}
           <Area dataKey="upper" stroke="none" fill="url(#coneGrad)" fillOpacity={1} connectNulls={false} />
           {/* Cone lower mask */}
-          <Area dataKey="lower" stroke="none" fill="#060a12" fillOpacity={1} connectNulls={false} />
+          <Area dataKey="lower" stroke="none" fill="#04000a" fillOpacity={1} connectNulls={false} />
           {/* Cone median */}
           <Line dataKey="median" stroke="#F7931A" strokeWidth={1} strokeDasharray="5 3" dot={false} connectNulls={false} opacity={0.35} />
 

@@ -6,7 +6,7 @@ const BTC_URI = `bitcoin:${BTC_ADDRESS}`;
 export function DonateQR() {
   return (
     <div className="flex items-center gap-3 px-3 py-2 rounded border"
-      style={{ borderColor: '#F7931A44', background: '#0a0f1e' }}>
+      style={{ borderColor: '#F7931A44', background: '#07000f' }}>
       {/* QR code — ~100px / ~1in */}
       <div className="flex-shrink-0 p-1.5 rounded-md" style={{ background: '#fff' }}>
         <QRCodeSVG
@@ -32,7 +32,7 @@ export function DonateQR() {
         <div className="text-slate-400 text-xs leading-snug mb-1.5" style={{ maxWidth: 110 }}>
           Enjoying the sim?<br />Send a little BTC ↗
         </div>
-        <div className="text-[#2a3a52] font-mono" style={{ fontSize: '0.58rem', wordBreak: 'break-all', maxWidth: 110 }}>
+        <div className="text-[#3a1070] font-mono" style={{ fontSize: '0.58rem', wordBreak: 'break-all', maxWidth: 110 }}>
           {BTC_ADDRESS.slice(0, 16)}…
         </div>
       </div>
