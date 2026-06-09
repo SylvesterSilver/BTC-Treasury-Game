@@ -89,9 +89,13 @@ export function BalancePanel({ balance, metrics }: Props) {
       {/* ── mNAV Metrics + CEBE ── */}
       <div className="game-card p-3">
         <div className="section-label mb-2">mNAV MULTIPLES</div>
-        <div className="grid grid-cols-2 gap-1.5 mb-2">
-          <MNavBadge label="mNAV" value={metrics.mNAV} sub="Mkt Cap / BTC" />
-          <MNavBadge label="EV mNAV" value={Math.max(0, metrics.evMNAV)} sub="EV / BTC" />
+        <div className="grid grid-cols-3 gap-1 mb-2">
+          <MNavBadge label="Mkt Cap" value={metrics.mNAV} sub="Cap÷BTC" />
+          <MNavBadge label="EV" value={Math.max(0, metrics.evMNAV)} sub="EV÷BTC" />
+          <MNavBadge label="CEBE ★" value={metrics.cebeMNAV} sub="Cap÷EqBTC" />
+        </div>
+        <div className="text-xs text-[#3a1070] mb-1.5 leading-relaxed px-0.5" style={{fontSize:'0.6rem'}}>
+          CEBE ★ = Market Cap ÷ (BTC − Senior Claims). Equity lens. Higher than Mkt Cap mNAV by leverage premium.
         </div>
         <div className="mt-1.5 text-xs rounded px-2 py-1 mb-2"
           style={{ background: metrics.mNAV >= 2 ? 'rgba(0,255,136,0.08)' : 'rgba(255,51,85,0.08)', border: `1px solid ${metrics.mNAV >= 2 ? 'rgba(0,255,136,0.2)' : 'rgba(255,51,85,0.2)'}`, color: metrics.mNAV >= 2 ? '#00FF88' : '#FF3355' }}>

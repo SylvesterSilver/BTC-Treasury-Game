@@ -39,12 +39,15 @@ export interface GameMetrics {
   strcMarketPrice: number;       // STRC market price ($100 par implied by rate)
   strcPriceHistory: number[];    // recent STRC price samples for mini chart
   evMNAV: number;                // Enterprise Value / BTC Value
-  // CEBE = (BTC Held - Net Senior Claims in BTC) / Shares Outstanding
-  // Net Senior Claims in BTC = (Debt + Preferred - Cash) / BTC Price
+  // Three mNAV multiples (cebetracker.io definitions)
+  // Mkt Cap mNAV  = mNAV above (Market Cap / BTC Value)
+  // EV mNAV       = evMNAV above ((Mkt Cap + Debt + Pref - Cash) / BTC Value)
+  // CEBE mNAV     = Market Cap / (Common Equity BTC × Price) — the equity lens
+  cebeMNAV: number;              // CEBE mNAV: Mkt Cap / (Common Equity BTC × Price)
   cebePerShare: number;          // net BTC per diluted share after all senior claims
-  cebeSats: number;              // cebePerShare in satoshis (×1e8)
-  cebeYieldPct: number;          // % change in CEBE vs game start
-  startingCebePerShare: number;  // CEBE at game start for yield calc
+  cebeSats: number;              // cebePerShare in satoshis
+  cebeYieldPct: number;          // % change in CEBE per share vs game start
+  startingCebePerShare: number;  // reference CEBE at game start
   preferredDivAccruedMM: number; // dividends accrued but not yet paid
   isInsolvent: boolean;
   insolventReason?: string;
@@ -214,17 +217,28 @@ export class FinancialModel {
     const enterpriseValueMM = marketCapMM + this.balance.convertibleDebtMM + this.balance.preferredFaceValueMM - this.balance.cashMM;
     const evMNAV = btcValueMM > 0 ? enterpriseValueMM / btcValueMM : 0;
 
-    // CEBE (Capital-Effective Bitcoin Equivalent) — correct formula:
-    // Net Senior Claims in BTC = (Debt + Preferred - Cash) / BTC Price
-    // CEBE per Share = (Total BTC - Net Senior Claims in BTC) / Shares Outstanding
-    // This is the net BTC each common shareholder "owns" after all obligations are paid
+    // ── Three mNAV metrics per cebetracker.io definitions ──
+    //
+    // 1. Mkt Cap mNAV  = Market Cap / (Total BTC × Price)             [computed above as mNAV]
+    // 2. EV mNAV       = (Mkt Cap + Debt + Pref − Cash) / (Total BTC × Price) [computed above]
+    // 3. CEBE mNAV     = Market Cap / (Common Equity BTC × Price)
+    //    Where Common Equity BTC = Total BTC − (Debt + Pref − Cash) / BTC Price
+    //    This nets out ALL senior claims in BTC terms first, THEN prices mkt cap against remainder
+    //    CEBE mNAV > Mkt Cap mNAV because denominator is smaller (senior claims subtracted)
+    //    CEBE mNAV → ∞ or negative as leverage grows (denominator shrinks toward zero/negative)
+
     const netSeniorClaimsMM = this.balance.convertibleDebtMM + this.balance.preferredFaceValueMM - this.balance.cashMM;
     const netSeniorClaimsBTC = btcPrice > 0 ? (netSeniorClaimsMM * 1e6) / btcPrice : 0;
-    const netBTCForShareholders = this.balance.btcHeld - netSeniorClaimsBTC;
-    const cebePerShare = this.balance.sharesOutstanding > 0 ? netBTCForShareholders / this.balance.sharesOutstanding : 0;
-    const cebeSats = cebePerShare * 1e8;  // convert to satoshis
+    const commonEquityBTC = this.balance.btcHeld - netSeniorClaimsBTC;
+    const commonEquityValueMM = (commonEquityBTC * btcPrice) / 1e6;
+    // CEBE mNAV = Market Cap / Common Equity BTC Value
+    const cebeMNAV = commonEquityValueMM !== 0 ? marketCapMM / commonEquityValueMM : 0;
 
-    // Set starting CEBE on first tick
+    // CEBE per share = Common Equity BTC / Shares (bonus metric — sats of net BTC exposure per share)
+    const cebePerShare = this.balance.sharesOutstanding > 0 ? commonEquityBTC / this.balance.sharesOutstanding : 0;
+    const cebeSats = cebePerShare * 1e8;
+
+    // Set starting CEBE on first computation
     if (this.startingCebePerShare === 0 && cebePerShare !== 0) {
       this.startingCebePerShare = cebePerShare;
     }
@@ -240,7 +254,7 @@ export class FinancialModel {
       isInsolvent, insolventReason, preferredCoverageRatio,
       sentiment, sentimentLabel, sentimentColor, atmCooldown,
       strcRate, strcMarketPrice, strcPriceHistory: [...this.strcPriceHistory],
-      evMNAV, cebePerShare, cebeSats, cebeYieldPct, startingCebePerShare: this.startingCebePerShare,
+      evMNAV, cebeMNAV, cebePerShare, cebeSats, cebeYieldPct, startingCebePerShare: this.startingCebePerShare,
       preferredDivAccruedMM: this.balance.preferredDivAccruedMM,
     };
   }
