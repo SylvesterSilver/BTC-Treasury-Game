@@ -182,7 +182,7 @@ export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueComm
                 Out: <span className="text-white font-mono">{balance.sharesOutstanding.toFixed(1)}M sh</span>
               </div>
               <div className="flex flex-wrap gap-1 mb-2">
-                {[1, 5, 10, 20].map(v => (
+                {[1, 5, 10].map(v => (
                   <Quick key={v} label={`${v}M sh`} onClick={() => setShareAmt(String(v))} />
                 ))}
               </div>
@@ -212,42 +212,102 @@ export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueComm
 
         {/* ── PREFERRED ── */}
         {tab === 'PREFERRED' && (
-          <div className="p-3 rounded border border-purple-900/40 bg-purple-950/10">
-            <div className="text-purple-400 text-xs font-bold uppercase tracking-wider mb-2">💎 STRC-STYLE PREFERRED @ 11.5% base</div>
-            <div className="rounded p-2 text-xs mb-3 bg-purple-950/30 border border-purple-800/30 text-purple-300">
-              Powerful leverage. Each $100M raised = $8M/yr in fixed dividends forever.
-              <span className="text-red-400"> Paid monthly.</span> Catastrophic in a bear market if BTC dumps.
+          <div className="space-y-2">
+            {/* STRC Price Chart */}
+            <div className="rounded border p-2" style={{borderColor:'rgba(120,0,180,0.4)', background:'rgba(60,0,100,0.15)'}}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-purple-400 text-xs font-bold uppercase tracking-wider">STRC MARKET PRICE</span>
+                <span className="font-mono font-bold text-sm" style={{color: metrics.strcMarketPrice >= 90 ? '#00FF88' : metrics.strcMarketPrice >= 60 ? '#f59e0b' : '#FF3355'}}>
+                  ${metrics.strcMarketPrice.toFixed(2)}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-[#6a3090] mb-1.5">
+                <span>$100 par ·</span>
+                <span>${(100 * 0.115).toFixed(2)}/yr div ·</span>
+                <span style={{color: metrics.strcRate > 0.20 ? '#FF3355' : '#a855f7'}}>
+                  {(metrics.strcRate * 100).toFixed(1)}% effective yield
+                </span>
+              </div>
+              {/* Mini SVG chart */}
+              {metrics.strcPriceHistory.length > 1 && (
+                <svg width="100%" height="44" style={{display:'block'}}>
+                  {(() => {
+                    const data = metrics.strcPriceHistory;
+                    const mn = Math.min(...data) * 0.97;
+                    const mx = Math.max(...data) * 1.03;
+                    const w = 100, h = 40;
+                    const pts = data.map((v, i) => {
+                      const x = (i / (data.length - 1)) * w;
+                      const y = h - ((v - mn) / (mx - mn)) * h;
+                      return `${x},${y}`;
+                    }).join(' ');
+                    const lastPct = ((data[data.length-1] - 100) / 100) * 100;
+                    const lineColor = data[data.length-1] >= data[0] ? '#00FF88' : '#FF3355';
+                    return (
+                      <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" width="100%" height="40">
+                        <defs>
+                          <linearGradient id="strc-grad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor={lineColor} stopOpacity="0.2"/>
+                            <stop offset="100%" stopColor={lineColor} stopOpacity="0"/>
+                          </linearGradient>
+                        </defs>
+                        <polyline points={pts} fill="none" stroke={lineColor} strokeWidth="1.5"/>
+                        <text x={w-1} y={h-2} textAnchor="end" fill={lineColor} fontSize="6" fontFamily="monospace">
+                          {lastPct >= 0 ? '+' : ''}{lastPct.toFixed(1)}%
+                        </text>
+                      </svg>
+                    );
+                  })()}
+                </svg>
+              )}
             </div>
-            {balance.preferredFaceValueMM > 0 && (
-              <div className="text-xs text-[#6a3090] mb-3 font-mono">
-                Stack: <span className="text-yellow-400">${balance.preferredFaceValueMM.toFixed(0)}M</span>
-                {' → '}monthly div: <span className="text-red-400">${(balance.preferredFaceValueMM * 0.115 / 12).toFixed(1)}M</span>
+
+            <div className="rounded p-2 text-xs" style={{background:'rgba(80,0,120,0.2)', border:'1px solid rgba(120,0,180,0.3)', color:'#cc88ff'}}>
+              <span className="font-bold text-purple-300">STRC Perpetual Preferred — 11.5% base annual dividend, paid monthly.</span>
+              {' '}Rate adjusts dynamically with coverage risk: rising exponentially when preferred obligations exceed BTC treasury value.
+              {' '}<span className="font-bold" style={{color:'#FF3355'}}>Structurally leveraged to Bitcoin — accretive in bull cycles, compounding liability in sustained drawdowns.</span>
+            </div>
+
+            {metrics.strcRate > 0.20 && (
+              <div className="rounded p-2 text-xs font-bold animate-pulse" style={{background:'rgba(200,0,30,0.15)', border:'1px solid rgba(255,51,85,0.6)', color:'#FF3355'}}>
+                ⚠ ELEVATED RISK: STRC yield at {(metrics.strcRate * 100).toFixed(1)}% — preferred obligations approaching or exceeding BTC coverage. Dividend service may become structurally unsustainable.
               </div>
             )}
-            <div className="flex flex-wrap gap-1 mb-2">
-              {[50, 100, 200, 500, 1000].map(v => (
+
+            {balance.preferredFaceValueMM > 0 && (
+              <div className="text-xs text-[#6a3090] font-mono px-1">
+                Stack: <span className="text-yellow-400">${balance.preferredFaceValueMM >= 1000 ? (balance.preferredFaceValueMM/1000).toFixed(2)+'B' : balance.preferredFaceValueMM.toFixed(0)+'M'}</span>
+                {' · '}monthly div: <span className="text-red-400">${(balance.preferredFaceValueMM * metrics.strcRate / 12).toFixed(1)}M</span>
+                {' · '}<span style={{color: metrics.strcMarketPrice < 80 ? '#FF3355' : '#a855f7'}}>STRC @ ${metrics.strcMarketPrice.toFixed(2)}</span>
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-1">
+              {[50, 100, 500, 1000, 5000, 10000].map(v => (
                 <Quick key={v} label={fmtQuickLabel(v)} onClick={() => setPrefAmt(String(v))} />
               ))}
             </div>
             <div className="flex gap-2">
               <input
-                className="flex-1 bg-[#04000a] border border-purple-900/50 rounded px-3 py-2 text-sm font-mono text-white focus:border-purple-400 focus:outline-none"
-                placeholder="Raise $M"
+                className="flex-1 bg-[#04000a] border rounded px-3 py-2 text-sm font-mono text-white focus:outline-none"
+                style={{borderColor: prefAmt ? 'rgba(167,85,247,0.8)' : 'rgba(120,0,180,0.4)'}}
+                placeholder="Raise $M (no limit)"
                 type="number"
+                min="1"
                 value={prefAmt}
                 onChange={e => setPrefAmt(e.target.value)}
               />
               <button
-                className="px-4 py-2 text-xs font-bold uppercase rounded transition-all hover:brightness-110"
-                style={{ background: 'linear-gradient(135deg,#7c3aed,#6d28d9)', color: '#fff', border: 'none', cursor: 'pointer' }}
+                className="px-4 py-2 text-xs font-bold uppercase rounded transition-all hover:brightness-125"
+                style={{ background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', color: '#fff', border: 'none', cursor: 'pointer', boxShadow:'0 0 12px rgba(124,58,237,0.4)' }}
                 disabled={!prefAmt || parseFloat(prefAmt) <= 0}
                 onClick={() => { onIssuePreferred(parseFloat(prefAmt)); setPrefAmt(''); }}>
                 ISSUE
               </button>
             </div>
             {prefAmt && parseFloat(prefAmt) > 0 && (
-              <div className="text-xs text-red-400 mt-1 font-mono">
-                Adds ${(parseFloat(prefAmt) * metrics.strcRate / 12).toFixed(1)}M/month at current {(metrics.strcRate * 100).toFixed(1)}% rate
+              <div className="text-xs text-red-400 font-mono px-1">
+                +${(parseFloat(prefAmt) * metrics.strcRate / 12).toFixed(1)}M/month div at {(metrics.strcRate * 100).toFixed(1)}% effective yield
               </div>
             )}
           </div>

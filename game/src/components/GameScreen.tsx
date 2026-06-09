@@ -31,6 +31,7 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const chartAreaRef = useRef<HTMLDivElement>(null);
   const synthRef = useRef<SynthEngine>(new SynthEngine());
+  const saylorIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [speed, setSpeed] = useState<TimeSpeed>('PAUSED');
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -50,8 +51,15 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
     engineRef.current = new GameEngine(era, config);
     // Auto-start music — user already clicked Play on config screen (satisfies browser autoplay policy)
     synthRef.current.start();
+    // Periodic Saylor quote — fires every ~90s while game is running
+    saylorIntervalRef.current = setInterval(() => {
+      synthRef.current.speakSaylorQuote();
+    }, 90000);
     forceUpdate();
-    return () => { synthRef.current.stop(); };
+    return () => {
+      synthRef.current.stop();
+      if (saylorIntervalRef.current) clearInterval(saylorIntervalRef.current);
+    };
   }, [era, config]);
 
   // Game loop
