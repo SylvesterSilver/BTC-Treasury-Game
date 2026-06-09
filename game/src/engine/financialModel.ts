@@ -13,6 +13,7 @@ export interface BalanceSheet {
   totalBTCSpentMM: number;      // cumulative USD spent buying BTC
   startingBTCPerShare: number;  // BTC/share at game start
   startingBTCHeld: number;
+  dividendsHalted: boolean;  // player elected to suspend preferred dividend payments
 }
 
 export interface GameMetrics {
@@ -45,10 +46,11 @@ export interface GameMetrics {
   // CEBE mNAV     = Market Cap / (Common Equity BTC × Price) — the equity lens
   cebeMNAV: number;              // CEBE mNAV: Mkt Cap / (Common Equity BTC × Price)
   cebePerShare: number;          // net BTC per diluted share after all senior claims
-  cebeSats: number;              // cebePerShare in satoshis
   cebeYieldPct: number;          // % change in CEBE per share vs game start
   startingCebePerShare: number;  // reference CEBE at game start
-  preferredDivAccruedMM: number; // dividends accrued but not yet paid
+  preferredDivAccruedMM: number;
+  dividendsHalted: boolean;
+  emergencySoldBTCThisTick: number;  // BTC auto-sold this tick due to cash exhaustion
   isInsolvent: boolean;
   insolventReason?: string;
   preferredCoverageRatio: number;
@@ -79,13 +81,15 @@ const PREFERRED_FACE_PER_SHARE = 0.025;
 const BTC_SUPPLY_PROXY = 19_700_000;
 
 // Dynamic STRC rate: exponential as preferred/BTC coverage deteriorates
-function computeSTRCRate(btcValueMM: number, preferredFaceValueMM: number): number {
+function computeSTRCRate(btcValueMM: number, preferredFaceValueMM: number, dividendsHalted = false): number {
   if (preferredFaceValueMM <= 0) return STRC_BASE_RATE;
   const coverage = btcValueMM / preferredFaceValueMM;
   if (coverage >= 2.0) return STRC_BASE_RATE;  // safe zone — base rate
   // Exponential escalation below 2x coverage
   const riskMult = Math.pow(Math.max(1, 2.0 / Math.max(coverage, 0.05)), 2.0);
-  return Math.min(STRC_BASE_RATE * riskMult, 0.99);  // cap at 99%/year
+  const baseRate = Math.min(STRC_BASE_RATE * riskMult, 0.99);
+  // Default penalty: market demands massive premium when dividends are suspended
+  return dividendsHalted ? Math.min(baseRate + 0.35, 0.99) : baseRate;
 }
 
 export class FinancialModel {
@@ -100,6 +104,7 @@ export class FinancialModel {
   private dayCount: number = 0;
   private strcPriceHistory: number[] = [];  // last 90 daily samples
   private startingCebePerShare: number = 0;
+  private emergencySoldBTCThisTick: number = 0;
   private currentInterestRate: number;
 
   constructor(era: Era, startingCapitalMM?: number) {
@@ -125,6 +130,7 @@ export class FinancialModel {
       totalBTCSpentMM: era.startingBTC > 0 ? era.startingBTC * era.startPrice / 1e6 : 0,
       startingBTCPerShare: initBTCPerShare,
       startingBTCHeld: era.startingBTC,
+      dividendsHalted: false,
     };
   }
 
@@ -167,7 +173,7 @@ export class FinancialModel {
       : 0;
 
     // Dynamic STRC rate — escalates exponentially as preferred exceeds BTC coverage
-    const strcRate = computeSTRCRate(btcValueMM, this.balance.preferredFaceValueMM);
+    const strcRate = computeSTRCRate(btcValueMM, this.balance.preferredFaceValueMM, this.balance.dividendsHalted);
     // Monthly costs (dividends paid monthly)
     const monthlyInterest = (this.balance.convertibleDebtMM * this.currentInterestRate) / 12;
     const monthlyPrefDiv = (this.balance.preferredFaceValueMM * strcRate) / 12;
@@ -236,7 +242,6 @@ export class FinancialModel {
 
     // CEBE per share = Common Equity BTC / Shares (bonus metric — sats of net BTC exposure per share)
     const cebePerShare = this.balance.sharesOutstanding > 0 ? commonEquityBTC / this.balance.sharesOutstanding : 0;
-    const cebeSats = cebePerShare * 1e8;
 
     // Set starting CEBE on first computation
     if (this.startingCebePerShare === 0 && cebePerShare !== 0) {
@@ -254,7 +259,9 @@ export class FinancialModel {
       isInsolvent, insolventReason, preferredCoverageRatio,
       sentiment, sentimentLabel, sentimentColor, atmCooldown,
       strcRate, strcMarketPrice, strcPriceHistory: [...this.strcPriceHistory],
-      evMNAV, cebeMNAV, cebePerShare, cebeSats, cebeYieldPct, startingCebePerShare: this.startingCebePerShare,
+      evMNAV, cebeMNAV, cebePerShare, cebeYieldPct, startingCebePerShare: this.startingCebePerShare,
+      dividendsHalted: this.balance.dividendsHalted,
+      emergencySoldBTCThisTick: this.emergencySoldBTCThisTick,
       preferredDivAccruedMM: this.balance.preferredDivAccruedMM,
     };
   }
@@ -266,12 +273,41 @@ export class FinancialModel {
     this.balance.cashMM += (dailyRevenue - dailyOpex);
     this.balance.cashMM -= (this.balance.convertibleDebtMM * this.currentInterestRate) / 365;
     const btcValueApprox = (this.balance.btcHeld * btcPrice) / 1e6;
-    const dynamicStrcRate = computeSTRCRate(btcValueApprox, this.balance.preferredFaceValueMM);
+    const dynamicStrcRate = computeSTRCRate(btcValueApprox, this.balance.preferredFaceValueMM, this.balance.dividendsHalted);
     const dailyPrefDiv = (this.balance.preferredFaceValueMM * dynamicStrcRate) / 365;
-    this.balance.preferredDivAccruedMM += dailyPrefDiv;
+    this.balance.preferredDivAccruedMM += dailyPrefDiv;  // always accrues
     if (this.dayCount % 30 === 0) {
-      this.balance.cashMM -= this.balance.preferredDivAccruedMM;
-      this.balance.preferredDivAccruedMM = 0;
+      if (!this.balance.dividendsHalted) {
+        // Pay dividends from cash
+        this.balance.cashMM -= this.balance.preferredDivAccruedMM;
+        this.balance.preferredDivAccruedMM = 0;
+      }
+      // If halted: dividends still accrue but cash is NOT drained
+      // Ongoing sentiment penalty for sustained non-payment
+      if (this.balance.dividendsHalted) {
+        this.sentimentLevel = Math.max(0, this.sentimentLevel - 5);
+        this.mNAVLevel = Math.max(0.1, this.mNAVLevel - 0.08);
+      }
+    }
+
+    // ── EMERGENCY BTC AUTO-SELL when cash runs out ──
+    this.emergencySoldBTCThisTick = 0;
+    if (this.balance.cashMM < -10 && this.balance.btcHeld > 0) {
+      // Sell enough BTC to cover the shortfall + 30-day buffer
+      const shortfallMM = Math.abs(this.balance.cashMM) + 30;
+      const btcToSell = Math.min(
+        (shortfallMM * 1e6) / btcPrice,
+        this.balance.btcHeld * 0.05  // sell at most 5% of stack at a time
+      );
+      if (btcToSell > 0) {
+        this.balance.btcHeld -= btcToSell;
+        this.balance.cashMM += (btcToSell * btcPrice) / 1e6;
+        this.emergencySoldBTCThisTick = btcToSell;
+        // Forced selling crushes mNAV and sentiment
+        this.mNAVLevel = Math.max(0.1, this.mNAVLevel - 0.20);
+        this.sentimentLevel = Math.max(0, this.sentimentLevel - 12);
+        this.stockPriceMultiplier *= 0.92;
+      }
     }
     if (this.atmCooldownDays > 0) this.atmCooldownDays--;
     if (this.dayCount % 30 === 0 && this.atmIssuanceCount > 0) {
@@ -280,7 +316,7 @@ export class FinancialModel {
     // Sample STRC market price daily
     if (this.dayCount % 1 === 0) {
       const btcApprox = (this.balance.btcHeld * btcPrice) / 1e6;
-      const sr = computeSTRCRate(btcApprox, this.balance.preferredFaceValueMM);
+      const sr = computeSTRCRate(btcApprox, this.balance.preferredFaceValueMM, this.balance.dividendsHalted);
       const strc_p = sr > 0 ? 11.5 / sr : 100;
       this.strcPriceHistory.push(strc_p);
       if (this.strcPriceHistory.length > 90) this.strcPriceHistory.shift();
@@ -321,6 +357,8 @@ export class FinancialModel {
     if (metrics.monthsRunway < 3) base -= 25;
     else if (metrics.monthsRunway > 24) base += 10;
     base -= this.atmIssuanceCount * 8;
+    // Dividend halt = massive sentiment destruction
+    if (this.balance.dividendsHalted) base -= 35;
     return Math.max(5, Math.min(95, base));
   }
 
@@ -360,7 +398,8 @@ export class FinancialModel {
   }
 
   issuePreferredStock(proceedsMM: number, btcPrice: number): { success: boolean; reason?: string } {
-    if (proceedsMM <= 0) return { success: false, reason: 'Invalid amount.' };  // no hard max — unlimited issuance
+    if (proceedsMM <= 0) return { success: false, reason: 'Invalid amount.' };
+    if (this.balance.dividendsHalted) return { success: false, reason: 'Cannot issue preferred — dividends are suspended. Preferred market is closed.' };
     const metrics = this.computeMetrics(btcPrice);
     if (metrics.mNAV < 0.8) return { success: false, reason: "Market won't buy preferred at this discount." };
     this.balance.preferredFaceValueMM += proceedsMM;
@@ -426,6 +465,20 @@ export class FinancialModel {
     if (interestRateDelta) this.adjustInterestRate(interestRateDelta);
     // mNAV loosely follows sentiment shocks
     this.mNAVLevel = Math.max(0.1, Math.min(4.0, this.mNAVLevel + sentimentDelta * 0.015));
+  }
+
+  haltDividends(): void {
+    this.balance.dividendsHalted = true;
+    // Immediate shock on halt announcement
+    this.sentimentLevel = Math.max(0, this.sentimentLevel - 30);
+    this.mNAVLevel = Math.max(0.1, this.mNAVLevel - 0.5);
+    this.stockPriceMultiplier *= 0.75;
+  }
+
+  resumeDividends(): void {
+    this.balance.dividendsHalted = false;
+    // Small recovery signal but market stays skeptical for a while
+    this.sentimentLevel = Math.min(100, this.sentimentLevel + 10);
   }
 
   getMNAV(): number { return this.mNAVLevel; }

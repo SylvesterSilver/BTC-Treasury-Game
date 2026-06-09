@@ -44,6 +44,7 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
   const [stockCrashClass, setStockCrashClass] = useState('');
   const [activeNewsEvent, setActiveNewsEvent] = useState<NewsEvent | null>(null);
   const [mobileTab, setMobileTab] = useState<MobileTab>('CHART');
+  const [crisisMode, setCrisisMode] = useState(false);
 
   const forceUpdate = () => setRenderCount(c => c + 1);
 
@@ -91,7 +92,21 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
         setShowGameOver(true);
         setIsWin(true);
       }
-      setNotifications([...state.notifications]);
+      // Emergency BTC sale detected — trigger alarm + red flash
+      if (state.emergencySoldBTC > 0) {
+        setCrisisMode(true);
+        synthRef.current.playAlarmSound();
+        setTimeout(() => setCrisisMode(false), 3000);
+        const n: Notification = {
+          id: `emergency_${Date.now()}`,
+          type: 'error',
+          message: `🚨 EMERGENCY SALE: ${state.emergencySoldBTC.toLocaleString(undefined, {maximumFractionDigits: 1})} BTC force-sold to cover obligations — price dropping!`,
+          timestamp: Date.now(),
+        };
+        setNotifications(prev => [n, ...prev.slice(0, 7)]);
+      } else {
+        setNotifications([...state.notifications]);
+      }
       setRenderCount(c => c + 1);
     }, cfg.tickMs);
 
@@ -141,6 +156,7 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
   void renderCount;
 
   const state = engine.getState();
+  const isCrisis = state.emergencySoldBTC > 0 || crisisMode; void isCrisis;
   const conePoints = engine.getConePoints(120);
   const isHistorical = engine.getSimulator().isInHistorical();
   const { metrics, balance, currentPrice, currentDate, daysSurvived, totalDays } = state;
@@ -358,6 +374,9 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
               onIssueCommon={(shares) => { engine.issueCommonStock(shares); syncAndFlash('ATM'); }}
               onIssuePreferred={(amt) => { engine.issuePreferredStock(amt); syncAndFlash('ATM'); }}
               onPayDebt={(amt) => { engine.payDownDebt(amt); syncAndFlash('ATM'); }}
+              onHaltDividends={() => { engine.haltDividends(); syncAndFlash('ATM'); forceUpdate(); }}
+              onResumeDividends={() => { engine.resumeDividends(); syncAndFlash('ATM'); forceUpdate(); }}
+              dividendsHalted={state.dividendsHalted}
             />
           </div>
           {/* Balance */}
@@ -398,6 +417,9 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
                   onIssueCommon={(shares) => { engine.issueCommonStock(shares); syncAndFlash('ATM'); }}
                   onIssuePreferred={(amt) => { engine.issuePreferredStock(amt); syncAndFlash('ATM'); }}
                   onPayDebt={(amt) => { engine.payDownDebt(amt); syncAndFlash('ATM'); }}
+                  onHaltDividends={() => { engine.haltDividends(); syncAndFlash('ATM'); forceUpdate(); }}
+                  onResumeDividends={() => { engine.resumeDividends(); syncAndFlash('ATM'); forceUpdate(); }}
+                  dividendsHalted={state.dividendsHalted}
                 />
               </div>
             )}

@@ -106,17 +106,6 @@ export function BalancePanel({ balance, metrics }: Props) {
         <div className="section-label mb-1.5">CEBE — NET BTC / DILUTED SHARE</div>
         <div className="rounded p-2 text-xs" style={{background:'#04000a', border:'1px solid #2d0060'}}>
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[#6a3090]">CEBE (sats/share)</span>
-            <span className="font-mono font-bold" style={{
-              color: metrics.cebePerShare > 0 ? '#00FF88' : '#FF3355',
-              textShadow: metrics.cebePerShare > 0 ? '0 0 8px rgba(0,255,136,0.5)' : '0 0 8px rgba(255,51,85,0.5)'
-            }}>
-              {metrics.cebeSats >= 0
-                ? `${metrics.cebeSats.toFixed(0)} sats`
-                : `−${Math.abs(metrics.cebeSats).toFixed(0)} sats`}
-            </span>
-          </div>
-          <div className="flex items-center justify-between mb-1">
             <span className="text-[#6a3090]">CEBE (BTC/share)</span>
             <span className="font-mono font-bold text-xs" style={{color: metrics.cebePerShare >= 0 ? '#00FF88' : '#FF3355'}}>
               {metrics.cebePerShare >= 0 ? '+' : ''}{metrics.cebePerShare.toFixed(6)} ₿
