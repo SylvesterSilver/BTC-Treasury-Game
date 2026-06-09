@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>₿ Music Preview — Bitcoin Treasury Simulator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=JetBrains+Mono:wght@400;700&display=swap');
+  :root {
+    --bg: #04000a; --card: #0a0018; --border: #2d0060;
+    --cyan: #00D4FF; --magenta: #FF0080; --bitcoin: #F7931A;
+    --green: #00FF88; --red: #FF3355; --text: #e0f4ff; --dim: #6a3090;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Share Tech Mono', 'JetBrains Mono', monospace;
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; padding: 24px;
+    background-image:
+      linear-gradient(rgba(85,0,204,0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(85,0,204,0.06) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  body::after {
+    content: ''; position: fixed; inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.07) 2px, rgba(0,0,0,0.07) 4px);
+    pointer-events: none; z-index: 9999;
+  }
+  h1 {
+    font-size: 1.8rem; font-weight: 700; letter-spacing: 0.12em;
+    color: var(--cyan); text-shadow: 0 0 20px var(--cyan), 0 0 40px rgba(0,212,255,0.3);
+    text-align: center; margin-bottom: 6px;
+  }
+  .sub {
+    color: var(--dim); font-size: 0.75rem; letter-spacing: 0.15em;
+    text-transform: uppercase; text-align: center; margin-bottom: 32px;
+  }
+  .grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px; width: 100%; max-width: 900px;
+  }
+  .track {
+    background: var(--card); border: 1px solid var(--border); border-radius: 6px;
+    padding: 20px; cursor: pointer; transition: all 0.15s; text-align: center;
+    position: relative; overflow: hidden;
+  }
+  .track:hover { border-color: var(--cyan); box-shadow: 0 0 20px rgba(0,212,255,0.15); transform: translateY(-2px); }
+  .track.active { border-color: var(--magenta); box-shadow: 0 0 30px rgba(255,0,128,0.3); }
+  .track.active::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(255,0,128,0.05), transparent);
+  }
+  .track-num { font-size: 0.6rem; color: var(--dim); letter-spacing: 0.2em; margin-bottom: 8px; }
+  .track-name {
+    font-size: 1rem; font-weight: 700; letter-spacing: 0.1em;
+    color: var(--text); margin-bottom: 6px;
+  }
+  .track-ref { font-size: 0.65rem; color: var(--dim); margin-bottom: 12px; line-height: 1.4; }
+  .track-bpm {
+    display: inline-block; font-size: 0.65rem; padding: 2px 8px;
+    border-radius: 2px; border: 1px solid; letter-spacing: 0.1em;
+    margin-bottom: 14px;
+  }
+  .play-btn {
+    display: block; width: 100%; padding: 10px;
+    background: transparent; color: var(--cyan); border: 1px solid var(--cyan);
+    border-radius: 3px; font-family: inherit; font-size: 0.75rem;
+    letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;
+    transition: all 0.15s;
+  }
+  .play-btn:hover { background: rgba(0,212,255,0.1); box-shadow: 0 0 12px rgba(0,212,255,0.25); }
+  .active .play-btn {
+    background: var(--magenta); color: #000; border-color: var(--magenta);
+    box-shadow: 0 0 16px rgba(255,0,128,0.4);
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .playing-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--magenta); animation: pulse 1s ease-in-out infinite; margin-right: 6px; }
+  .status-bar {
+    margin-top: 24px; padding: 12px 24px; border-radius: 4px;
+    border: 1px solid var(--border); background: var(--card);
+    font-size: 0.75rem; color: var(--dim); text-align: center; min-width: 300px;
+  }
+  .stop-btn {
+    margin-top: 16px; padding: 10px 32px;
+    background: transparent; color: var(--red); border: 1px solid var(--red);
+    border-radius: 3px; font-family: inherit; font-size: 0.8rem;
+    letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; transition: all 0.15s;
+  }
+  .stop-btn:hover { background: rgba(255,51,85,0.1); box-shadow: 0 0 12px rgba(255,51,85,0.3); }
+  .back-link { margin-top: 28px; color: var(--dim); font-size: 0.7rem; text-decoration: none; letter-spacing: 0.1em; transition: color 0.2s; }
+  .back-link:hover { color: var(--cyan); }
+</style>
+</head>
+<body>
+<h1>₿ MUSIC PREVIEW</h1>
+<p class="sub">Bitcoin Treasury Strategy Simulator · Select a style to audition</p>
+
+<div class="grid" id="grid"></div>
+
+<div class="status-bar" id="status">Click a track to audition · Click again to stop</div>
+<button class="stop-btn" id="stopBtn" onclick="stopAll()">■ STOP ALL</button>
+<a class="back-link" href="./">← BACK TO GAME</a>
+
+<script>
+const TRACKS = [
+  {
+    id: 'synthwave', num: '02', name: 'SYNTHWAVE / OUTRUN',
+    ref: 'Kavinsky "Nightcall" · Drive (2011) · Perturbator',
+    bpm: 120, bpmColor: '#00D4FF',
+    desc: 'Driving 4/4 beat, detuned saw pads, arpeggiated lead. Energetic 80s cyberpunk.',
+  },
+  {
+    id: 'tron', num: '03', name: 'TRON LEGACY',
+    ref: 'Daft Punk score · "Derezzed" · "The Game Has Changed"',
+    bpm: 128, bpmColor: '#00FF88',
+    desc: 'Four-on-floor kick, pulsing bass, epic rising chords. Electronic + orchestral.',
+  },
+  {
+    id: 'chiptune', num: '04', name: 'CHIPTUNE / 8-BIT',
+    ref: 'Mega Man · Zelda · Classic arcade',
+    bpm: 155, bpmColor: '#F7931A',
+    desc: 'Square/triangle waves, fast arpeggios, catchy loop. Nostalgic retro game energy.',
+  },
+  {
+    id: 'industrial', num: '05', name: 'INDUSTRIAL CYBERPUNK',
+    ref: 'Perturbator · NIN Ambient · Ghost in the Shell OST',
+    bpm: 110, bpmColor: '#FF0080',
+    desc: 'Distorted bass drone, mechanical rhythm, dark minor. Bear markets feel ominous.',
+  },
+  {
+    id: 'lofi', num: '06', name: 'LO-FI CHILL',
+    ref: 'Lo-fi hip hop · Jazz café · Study beats',
+    bpm: 75, bpmColor: '#a855f7',
+    desc: 'Jazzy minor 7th chords, soft pads, minimal. Easy on the ears for long sessions.',
+  },
+];
+
+// ── Web Audio Engine ──
+let ctx = null;
+let masterGain = null;
+let activePlayers = [];
+let activeTrackId = null;
+let schedulerTimeout = null;
+
+function getCtx() {
+  if (!ctx) {
+    ctx = new AudioContext();
+    masterGain = ctx.createGain();
+    masterGain.gain.value = 0.28;
+    masterGain.connect(ctx.destination);
+  }
+  return ctx;
+}
+
+function stopAll() {
+  if (schedulerTimeout) { clearTimeout(schedulerTimeout); schedulerTimeout = null; }
+  activePlayers.forEach(n => { try { n.stop(); } catch(_){} });
+  activePlayers = [];
+  activeTrackId = null;
+  document.querySelectorAll('.track').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.play-btn').forEach(b => { b.textContent = '▶ PLAY'; });
+  document.getElementById('status').innerHTML = 'Stopped.';
+}
+
+function scheduleNote(freq, type, startT, dur, vol, filterFreq = 2000) {
+  const c = getCtx();
+  const osc = c.createOscillator();
+  const gain = c.createGain();
+  const filter = c.createBiquadFilter();
+  osc.type = type;
+  osc.frequency.value = freq;
+  filter.type = 'lowpass';
+  filter.frequency.value = filterFreq;
+  gain.gain.setValueAtTime(0, startT);
+  gain.gain.linearRampToValueAtTime(vol, startT + Math.min(0.01, dur * 0.1));
+  gain.gain.setValueAtTime(vol, startT + dur * 0.6);
+  gain.gain.exponentialRampToValueAtTime(0.0001, startT + dur);
+  osc.connect(filter); filter.connect(gain); gain.connect(masterGain);
+  osc.start(startT); osc.stop(startT + dur + 0.05);
+  activePlayers.push(osc);
+}
+
+function scheduleKick(startT, vol = 0.5) {
+  const c = getCtx();
+  const osc = c.createOscillator();
+  const gain = c.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(180, startT);
+  osc.frequency.exponentialRampToValueAtTime(30, startT + 0.18);
+  gain.gain.setValueAtTime(vol, startT);
+  gain.gain.exponentialRampToValueAtTime(0.0001, startT + 0.22);
+  osc.connect(gain); gain.connect(masterGain);
+  osc.start(startT); osc.stop(startT + 0.25);
+  activePlayers.push(osc);
+}
+
+function scheduleSnare(startT, vol = 0.18) {
+  const c = getCtx();
+  const bufLen = Math.floor(c.sampleRate * 0.12);
+  const buf = c.createBuffer(1, bufLen, c.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < bufLen; i++) d[i] = (Math.random()*2-1) * Math.pow(1 - i/bufLen, 2.5);
+  const src = c.createBufferSource();
+  src.buffer = buf;
+  const filter = c.createBiquadFilter();
+  filter.type = 'bandpass'; filter.frequency.value = 2000; filter.Q.value = 1.5;
+  const gain = c.createGain();
+  gain.gain.setValueAtTime(vol, startT);
+  gain.gain.exponentialRampToValueAtTime(0.0001, startT + 0.12);
+  src.connect(filter); filter.connect(gain); gain.connect(masterGain);
+  src.start(startT); activePlayers.push(src);
+}
+
+function scheduleHihat(startT, vol = 0.06) {
+  const c = getCtx();
+  const bufLen = Math.floor(c.sampleRate * 0.04);
+  const buf = c.createBuffer(1, bufLen, c.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < bufLen; i++) d[i] = (Math.random()*2-1) * Math.pow(1 - i/bufLen, 3);
+  const src = c.createBufferSource();
+  src.buffer = buf;
+  const filter = c.createBiquadFilter();
+  filter.type = 'highpass'; filter.frequency.value = 8000;
+  const gain = c.createGain();
+  gain.gain.setValueAtTime(vol, startT);
+  gain.gain.exponentialRampToValueAtTime(0.0001, startT + 0.04);
+  src.connect(filter); filter.connect(gain); gain.connect(masterGain);
+  src.start(startT); activePlayers.push(src);
+}
+
+function makeReverb(decaySec = 1.5) {
+  const c = getCtx();
+  const conv = c.createConvolver();
+  const len = Math.floor(c.sampleRate * decaySec);
+  const buf = c.createBuffer(2, len, c.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = buf.getChannelData(ch);
+    for (let i = 0; i < len; i++) d[i] = (Math.random()*2-1) * Math.pow(1 - i/len, 2);
+  }
+  conv.buffer = buf;
+  return conv;
+}
+
+// ── Track Schedulers ──
+
+const PLAYERS = {
+
+  synthwave: (function() {
+    // E minor: Em - C - G - D, 120 BPM
+    const CHORDS = [
+      [164.81, 196.0, 246.94],  // Em
+      [130.81, 164.81, 196.0],  // C
+      [196.0,  246.94, 293.66], // G
+      [146.83, 185.0,  220.0],  // D
+    ];
+    const ARP = [164.81, 220.0, 261.63, 329.63, 261.63, 220.0];
+    const BEAT = 60/120;
+    let beat = 0, chord = 0;
+    return function loop(startT) {
+      if (activeTrackId !== 'synthwave') return;
+      const t = startT;
+      // Kick on 1 & 3
+      scheduleKick(t, 0.6);
+      scheduleKick(t + BEAT*2, 0.55);
+      // Snare on 2 & 4
+      scheduleSnare(t + BEAT, 0.22);
+      scheduleSnare(t + BEAT*3, 0.22);
+      // Hi-hats every 8th note
+      for (let i = 0; i < 8; i++) scheduleHihat(t + i * BEAT/2, 0.07);
+      // Saw bass
+      const bassNote = [82.4, 65.4, 98.0, 73.4][chord%4];
+      scheduleNote(bassNote, 'sawtooth', t, BEAT*3.5, 0.18, 400);
+      // Pad chord (detuned saws)
+      CHORDS[chord%4].forEach((f,i) => {
+        scheduleNote(f, 'sawtooth', t, BEAT*4, 0.06*(1-i*0.1), 1200);
+        scheduleNote(f*1.004, 'sawtooth', t, BEAT*4, 0.04, 1200);
+      });
+      // Arp lead
+      ARP.forEach((f,i) => scheduleNote(f*2, 'square', t + i*(BEAT/1.5), BEAT*0.9, 0.05, 3000));
+      beat += 4; chord = (chord+1)%4;
+      schedulerTimeout = setTimeout(() => loop(getCtx().currentTime + 0.05), (BEAT*4-0.1)*1000);
+    };
+  })(),
+
+  tron: (function() {
+    // D minor, 128 BPM, epic
+    const CHORDS = [
+      [73.4, 110.0, 146.8],  // Dm
+      [87.3, 110.0, 130.8],  // F
+      [98.0, 123.5, 146.8],  // C
+      [65.4, 98.0,  130.8],  // Bb
+    ];
+    const BEAT = 60/128;
+    let chord = 0;
+    return function loop(startT) {
+      if (activeTrackId !== 'tron') return;
+      const t = startT;
+      // 4-on-floor kick
+      for (let i = 0; i < 4; i++) scheduleKick(t + i*BEAT, 0.65);
+      // Snare 2 & 4
+      scheduleSnare(t + BEAT, 0.25); scheduleSnare(t + BEAT*3, 0.25);
+      // Hi-hats
+      for (let i = 0; i < 8; i++) scheduleHihat(t + i*BEAT/2, 0.05);
+      // Pulsing bass (every quarter)
+      [0,1,2,3].forEach(i => scheduleNote(CHORDS[chord%4][0]*0.5, 'sine', t+i*BEAT, BEAT*0.9, 0.25, 300));
+      // Epic pad
+      CHORDS[chord%4].forEach((f,i) => {
+        scheduleNote(f, 'sawtooth', t, BEAT*4.5, 0.07-i*0.015, 900);
+        scheduleNote(f*2, 'square', t, BEAT*4.5, 0.025, 2000);
+      });
+      // Rising stab on beat 1
+      scheduleNote(CHORDS[chord%4][2]*2, 'square', t, BEAT*0.5, 0.08, 4000);
+      scheduleNote(CHORDS[chord%4][2]*4, 'sine', t+BEAT*0.5, BEAT*0.3, 0.05, 5000);
+      chord = (chord+1)%4;
+      schedulerTimeout = setTimeout(() => loop(getCtx().currentTime + 0.05), (BEAT*4-0.1)*1000);
+    };
+  })(),
+
+  chiptune: (function() {
+    // C major, 155 BPM, 8-bit
+    const MELODY = [523.25,659.25,783.99,659.25,523.25,392.0,440.0,523.25,
+                    659.25,783.99,1046.5,783.99,659.25,523.25,440.0,392.0];
+    const BASS   = [130.8,130.8,164.8,164.8,196.0,196.0,164.8,130.8];
+    const BEAT   = 60/155;
+    let step = 0;
+    return function loop(startT) {
+      if (activeTrackId !== 'chiptune') return;
+      const t = startT;
+      // Kick on 1, 2.5
+      scheduleKick(t, 0.5); scheduleKick(t+BEAT*1.5, 0.4);
+      scheduleSnare(t+BEAT, 0.2); scheduleSnare(t+BEAT*3, 0.2);
+      for (let i = 0; i < 8; i++) scheduleHihat(t+i*BEAT/2, 0.06);
+      // Melody (square, 16ths)
+      for (let i = 0; i < 4; i++) {
+        const f = MELODY[(step*4+i)%MELODY.length];
+        scheduleNote(f, 'square', t+i*BEAT, BEAT*0.85, 0.08, 5000);
+      }
+      // Triangle bass (every half bar)
+      scheduleNote(BASS[step%BASS.length], 'triangle', t, BEAT*2, 0.15, 600);
+      // Arp decoration
+      [0,1,2,3].forEach(i => scheduleNote(BASS[step%BASS.length]*2*(1+i*0.5), 'square', t+i*BEAT*0.5, BEAT*0.4, 0.04, 3000));
+      step++;
+      schedulerTimeout = setTimeout(() => loop(getCtx().currentTime + 0.05), (BEAT*4-0.1)*1000);
+    };
+  })(),
+
+  industrial: (function() {
+    // B minor dark, 110 BPM
+    const NOTES = [61.7, 73.4, 65.4, 58.3]; // Bm vibe, dissonant
+    const BEAT  = 60/110;
+    let bar = 0;
+    return function loop(startT) {
+      if (activeTrackId !== 'industrial') return;
+      const t = startT;
+      // Distorted kick (clipped sine)
+      scheduleKick(t, 0.75); scheduleKick(t+BEAT*2, 0.6);
+      // Off-beat snare
+      scheduleSnare(t+BEAT*1.5, 0.3);
+      // Clicky mechanical hi-hats (triplet feel)
+      for (let i = 0; i < 6; i++) scheduleHihat(t+i*(BEAT*2/3), 0.09);
+      // Drone bass (sawtooth, heavy filter)
+      scheduleNote(NOTES[bar%4], 'sawtooth', t, BEAT*4.2, 0.22, 200);
+      // Distorted mid drone
+      scheduleNote(NOTES[bar%4]*2, 'sawtooth', t, BEAT*4, 0.08, 600);
+      // Harsh synth stab on beat 3
+      [0,1,2].forEach(i => scheduleNote(NOTES[(bar+i)%4]*4, 'square', t+BEAT*2+i*BEAT*0.15, BEAT*0.25, 0.05, 2500));
+      // Eerie high tone
+      scheduleNote(NOTES[bar%4]*8, 'sine', t, BEAT*4, 0.025, 8000);
+      bar++;
+      schedulerTimeout = setTimeout(() => loop(getCtx().currentTime + 0.05), (BEAT*4-0.1)*1000);
+    };
+  })(),
+
+  lofi: (function() {
+    // Dm7 - Gmaj7 - Cmaj7 - Am7, 75 BPM
+    const CHORDS = [
+      [73.4, 87.3, 110.0, 130.8],  // Dm7
+      [98.0, 123.5,146.8, 185.0],  // G7
+      [65.4, 82.4, 98.0,  123.5],  // Cmaj7
+      [55.0, 73.4, 87.3,  110.0],  // Am7
+    ];
+    const BEAT = 60/75;
+    let chord = 0;
+    return function loop(startT) {
+      if (activeTrackId !== 'lofi') return;
+      const t = startT;
+      // Soft kick
+      scheduleKick(t, 0.3); scheduleKick(t+BEAT*2.5, 0.22);
+      // Soft snare
+      scheduleSnare(t+BEAT*1.5, 0.14); scheduleSnare(t+BEAT*3.5, 0.12);
+      // Gentle hats
+      for (let i = 0; i < 4; i++) scheduleHihat(t+i*BEAT, 0.04);
+      // Jazz pad (sine+slight square blend, mellow)
+      CHORDS[chord%4].forEach((f,i) => {
+        const startOffset = i * BEAT * 0.12; // slight strum
+        scheduleNote(f, 'sine', t+startOffset, BEAT*3.5, 0.09-i*0.01, 1800);
+        scheduleNote(f, 'triangle', t+startOffset, BEAT*3.5, 0.04, 2200);
+      });
+      // Soft melodic lead note
+      const leadF = CHORDS[chord%4][2]*2;
+      scheduleNote(leadF, 'sine', t+BEAT, BEAT*1.5, 0.055, 4000);
+      chord = (chord+1)%4;
+      schedulerTimeout = setTimeout(() => loop(getCtx().currentTime + 0.05), (BEAT*4-0.1)*1000);
+    };
+  })(),
+};
+
+// ── UI ──
+function renderGrid() {
+  const grid = document.getElementById('grid');
+  TRACKS.forEach(track => {
+    const card = document.createElement('div');
+    card.className = 'track';
+    card.id = 'track-' + track.id;
+    card.innerHTML = `
+      <div class="track-num">STYLE ${track.num}</div>
+      <div class="track-name">${track.name}</div>
+      <div class="track-ref">${track.ref}</div>
+      <span class="track-bpm" style="color:${track.bpmColor};border-color:${track.bpmColor}44;">${track.bpm} BPM</span>
+      <div class="track-ref" style="margin-bottom:14px;font-size:0.6rem;">${track.desc}</div>
+      <button class="play-btn" id="btn-${track.id}" onclick="toggle('${track.id}')">▶ PLAY</button>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function toggle(id) {
+  if (activeTrackId === id) { stopAll(); return; }
+  stopAll();
+  activeTrackId = id;
+  document.getElementById('track-'+id).classList.add('active');
+  const btn = document.getElementById('btn-'+id);
+  btn.innerHTML = '<span class="playing-dot"></span>PLAYING';
+  const track = TRACKS.find(t => t.id === id);
+  document.getElementById('status').innerHTML =
+    `<span style="color:var(--magenta)">●</span> Now playing: <span style="color:var(--cyan)">${track.name}</span> · ${track.bpm} BPM · Click again to stop`;
+  const c = getCtx();
+  if (c.state === 'suspended') c.resume();
+  PLAYERS[id](c.currentTime + 0.05);
+}
+
+renderGrid();
+</script>
+</body>
+</html>
