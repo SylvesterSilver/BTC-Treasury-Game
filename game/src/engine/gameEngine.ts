@@ -33,6 +33,8 @@ export interface GameState {
   notifications: Notification[];
   lastTradeFlash?: 'BUY' | 'SELL' | 'ATM' | null;
   lastNewsEvent?: NewsEvent | null;
+  emergencySoldBTC: number;  // BTC auto-sold this tick (0 if none)
+  dividendsHalted: boolean;
 }
 
 export interface Notification {
@@ -83,6 +85,8 @@ export class GameEngine {
       notifications: this.notifications,
       lastTradeFlash: flash,
       lastNewsEvent: newsEvt,
+      emergencySoldBTC: metrics.emergencySoldBTCThisTick ?? 0,
+      dividendsHalted: metrics.dividendsHalted ?? false,
     };
   }
 
@@ -204,6 +208,16 @@ export class GameEngine {
         `✓ $${amountMM.toFixed(0)}M debt cleared → cleaner balance sheet`);
     }
     return this.addNotification('error', result.reason ?? 'Debt paydown failed');
+  }
+
+  haltDividends(): Notification {
+    this.model.haltDividends();
+    return this.addNotification('warning', '⚠ DIVIDENDS SUSPENDED — STRC preferred in default. Preferred market closed. Sentiment destroyed.');
+  }
+
+  resumeDividends(): Notification {
+    this.model.resumeDividends();
+    return this.addNotification('info', '✓ Dividends resumed — preferred market may reopen.');
   }
 
   private addNotification(type: Notification['type'], message: string): Notification {

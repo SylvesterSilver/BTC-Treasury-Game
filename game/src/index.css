@@ -431,3 +431,9 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
   color: var(--cyan);
   box-shadow: 0 0 8px rgba(0,212,255,0.2);
 }
+
+/* ── Cash crisis flash ── */
+@keyframes crisis-flash {
+  0%, 100% { background: rgba(255,0,0,0.08); }
+  50%       { background: rgba(255,0,0,0.22); border: 2px solid rgba(255,51,85,0.8); }
+}

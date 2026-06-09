@@ -12,6 +12,9 @@ interface Props {
   onIssueCommon: (sharesMM: number) => void;
   onIssuePreferred: (amountMM: number) => void;
   onPayDebt: (amountMM: number) => void;
+  onHaltDividends: () => void;
+  onResumeDividends: () => void;
+  dividendsHalted: boolean;
 }
 
 function Quick({ label, onClick }: { label: string; onClick: () => void }) {
@@ -23,7 +26,7 @@ function Quick({ label, onClick }: { label: string; onClick: () => void }) {
   );
 }
 
-export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueCommon, onIssuePreferred, onPayDebt }: Props) {
+export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueCommon, onIssuePreferred, onPayDebt, onHaltDividends, onResumeDividends, dividendsHalted }: Props) {
   const [tab, setTab] = useState<ActionTab>('BUY_BTC');
   const [buyAmt, setBuyAmt] = useState('');
   const [sellAmt, setSellAmt] = useState('');
@@ -213,6 +216,29 @@ export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueComm
         {/* ── PREFERRED ── */}
         {tab === 'PREFERRED' && (
           <div className="space-y-2">
+            {/* Dividend Halt Toggle */}
+            <div className="rounded border p-2.5 flex items-start gap-3"
+              style={{borderColor: dividendsHalted ? 'rgba(255,51,85,0.6)' : 'rgba(120,0,180,0.4)', background: dividendsHalted ? 'rgba(255,0,30,0.1)' : 'rgba(60,0,100,0.15)'}}>
+              <div className="flex-shrink-0 mt-0.5">
+                <input
+                  type="checkbox"
+                  id="halt-divs"
+                  checked={dividendsHalted}
+                  onChange={e => e.target.checked ? onHaltDividends() : onResumeDividends()}
+                  style={{accentColor: dividendsHalted ? '#FF3355' : '#a855f7', width: 14, height: 14, cursor: 'pointer'}}
+                />
+              </div>
+              <label htmlFor="halt-divs" className="cursor-pointer flex-1">
+                <div className="font-bold text-xs mb-0.5" style={{color: dividendsHalted ? '#FF3355' : '#a855f7', letterSpacing:'0.05em'}}>
+                  {dividendsHalted ? '🚨 DIVIDENDS SUSPENDED' : 'SUSPEND DIVIDEND PAYMENTS'}
+                </div>
+                <div className="text-xs leading-relaxed" style={{color: dividendsHalted ? 'rgba(255,51,85,0.7)' : '#4a2a7a'}}>
+                  {dividendsHalted
+                    ? 'Cash no longer drained. Dividends still accrue. Preferred market CLOSED. Sentiment cratered. STRC price crashed.'
+                    : 'Stops cash drain immediately. Dividends still accrue unpaid. Cannot issue new preferreds. Crushes sentiment and STRC price.'}
+                </div>
+              </label>
+            </div>
             {/* STRC Price Chart */}
             <div className="rounded border p-2" style={{borderColor:'rgba(120,0,180,0.4)', background:'rgba(60,0,100,0.15)'}}>
               <div className="flex items-center justify-between mb-1">

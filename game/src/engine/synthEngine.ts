@@ -350,4 +350,35 @@ export class SynthEngine {
     window.speechSynthesis.speak(utterance);
   }
 
+  // Emergency alarm — aggressive klaxon
+  playAlarmSound() {
+    if (!this.ctx || !this.master) return;
+    const now = this.ctx.currentTime;
+    const BEEP = 0.11;
+    const PAUSE = 0.04;
+    for (let i = 0; i < 8; i++) {
+      const t = now + i * (BEEP + PAUSE);
+      const freq = i % 2 === 0 ? 880 : 1320;
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+      osc.type = 'square';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.20, t + 0.008);
+      gain.gain.setValueAtTime(0.20, t + BEEP - 0.015);
+      gain.gain.linearRampToValueAtTime(0, t + BEEP);
+      osc.connect(gain); gain.connect(this.master!);
+      osc.start(t); osc.stop(t + BEEP + 0.02);
+      // Bass thud
+      const bass = this.ctx!.createOscillator();
+      const bassG = this.ctx!.createGain();
+      bass.type = 'sine';
+      bass.frequency.value = freq / 2;
+      bassG.gain.setValueAtTime(0.08, t);
+      bassG.gain.exponentialRampToValueAtTime(0.001, t + BEEP);
+      bass.connect(bassG); bassG.connect(this.master!);
+      bass.start(t); bass.stop(t + BEEP + 0.02);
+    }
+  }
+
 }
