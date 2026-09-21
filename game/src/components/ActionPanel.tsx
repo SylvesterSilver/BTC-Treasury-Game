@@ -1,4 +1,4 @@
-import { fmtQuickLabel } from '../utils/format';
+import { fmtQuickLabel, fmtMM } from '../utils/format';
 import { useState } from 'react';
 import type { GameMetrics, BalanceSheet } from '../engine/financialModel';
 
@@ -430,9 +430,9 @@ export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueComm
                 Paying down cleans the balance sheet, boosts NAV, and lifts mNAV. Use when BTC is expensive.
               </div>
               <div className="text-xs text-[#6a3090] mb-3 font-mono">
-                Debt: <span className="text-red-400">${balance.convertibleDebtMM.toFixed(0)}M</span>
+                Debt: <span className="text-red-400">{fmtMM(balance.convertibleDebtMM)}</span>
                 <span className="mx-2">·</span>
-                Cash: <span className="text-emerald-400">${balance.cashMM.toFixed(1)}M</span>
+                Cash: <span className="text-emerald-400">{fmtMM(balance.cashMM)}</span>
                 <span className="mx-2">·</span>
                 Rate: <span className="text-yellow-400">{(metrics.currentInterestRate * 100).toFixed(1)}%</span>
               </div>
