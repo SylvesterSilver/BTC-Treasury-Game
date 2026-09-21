@@ -344,7 +344,7 @@ export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueComm
           <div className="p-3 rounded border border-red-900/30 bg-red-950/10">
             <div className="text-red-400 text-xs font-bold uppercase tracking-wider mb-2">🔓 RETIRE CONVERTIBLE DEBT</div>
             <div className="rounded p-2 text-xs mb-3 bg-red-950/20 border border-red-800/30 text-red-300">
-              6% annual interest. Paying down cleans the balance sheet, boosts NAV, and lifts mNAV. Use when BTC is expensive.
+              {(metrics.currentInterestRate * 100).toFixed(1)}% annual interest (moves with Fed news). Paying down cleans the balance sheet, boosts NAV, and lifts mNAV. Use when BTC is expensive.
             </div>
             <div className="text-xs text-[#6a3090] mb-3 font-mono">
               Debt: <span className="text-red-400">${balance.convertibleDebtMM.toFixed(0)}M</span>
@@ -373,7 +373,7 @@ export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueComm
             </div>
             {debtAmt && parseFloat(debtAmt) > 0 && (
               <div className="text-xs text-emerald-400 mt-1 font-mono">
-                Saves ${(parseFloat(debtAmt) * 0.06 / 12).toFixed(2)}M/month in interest
+                Saves ${(parseFloat(debtAmt) * metrics.currentInterestRate / 12).toFixed(2)}M/month in interest
               </div>
             )}
           </div>
