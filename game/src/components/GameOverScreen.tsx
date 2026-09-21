@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { fmtMM, fmtPrice, fmtBTC } from '../utils/format';
 import type { GameMetrics, BalanceSheet } from '../engine/financialModel';
+import type { GameOutcome } from '../engine/gameEngine';
+import { GAME_LENGTH_DAYS, WIN_BTC_VALUE_MM } from '../engine/gameEngine';
 import type { Era } from '../data/eras';
 import {
   getLeaderboard,
@@ -10,7 +12,7 @@ import {
 } from '../engine/leaderboard';
 
 interface Props {
-  isWin: boolean;
+  outcome: GameOutcome;
   metrics: GameMetrics;
   balance: BalanceSheet;
   era: Era;
@@ -77,7 +79,8 @@ function LeaderboardTable({ entries, highlightScore }: { entries: LeaderboardEnt
   );
 }
 
-export function GameOverScreen({ isWin, metrics, balance, era, daysSurvived, onRestart, onChangeEra }: Props) {
+export function GameOverScreen({ outcome, metrics, balance, era, daysSurvived, onRestart, onChangeEra }: Props) {
+  const isWin = outcome === 'WIN';
   const rating = getRating(metrics.btcValueMM, daysSurvived);
   const priceChangePct = ((metrics.btcPrice - era.startPrice) / era.startPrice) * 100;
   const priceUp = metrics.btcPrice >= era.startPrice;
@@ -87,11 +90,6 @@ export function GameOverScreen({ isWin, metrics, balance, era, daysSurvived, onR
   const [submitted, setSubmitted] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(() => getLeaderboard(era.id));
   const [myScore, setMyScore] = useState<number | undefined>(undefined);
-
-  // Auto-load leaderboard
-  useEffect(() => {
-    setLeaderboard(getLeaderboard(era.id));
-  }, [era.id]);
 
   const handleSubmit = () => {
     const name = nameInput.trim() || 'Anonymous';
@@ -120,13 +118,23 @@ export function GameOverScreen({ isWin, metrics, balance, era, daysSurvived, onR
 
           {/* ── STATUS ── */}
           <div className="text-center mb-4">
-            {isWin ? (
+            {outcome === 'WIN' && (
               <>
                 <div className="text-5xl mb-1 glow-text-bitcoin">₿</div>
                 <div className="text-bitcoin text-2xl font-bold glow-text-bitcoin">STACKED</div>
                 <div className="text-[#6a3090] text-xs mt-1">Bitcoin treasury mission accomplished</div>
               </>
-            ) : (
+            )}
+            {outcome === 'SURVIVED' && (
+              <>
+                <div className="text-5xl mb-1">🔔</div>
+                <div className="text-2xl font-bold" style={{ color: '#00D4FF' }}>CLOSING BELL</div>
+                <div className="text-[#6a3090] text-xs mt-1">
+                  {GAME_LENGTH_DAYS} days survived. Treasury finished below the {fmtMM(WIN_BTC_VALUE_MM)} win line.
+                </div>
+              </>
+            )}
+            {outcome === 'BUST' && (
               <>
                 <div className="text-5xl mb-1">📉</div>
                 <div className="text-red-400 text-2xl font-bold">REKT</div>

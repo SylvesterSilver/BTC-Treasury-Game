@@ -2,7 +2,7 @@ import { fmtMM, fmtPrice } from '../utils/format';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { GameConfig } from '../data/gameConfig';
 import { GameEngine, TIME_SPEEDS } from '../engine/gameEngine';
-import type { TimeSpeed, Notification } from '../engine/gameEngine';
+import type { TimeSpeed, Notification, GameOutcome } from '../engine/gameEngine';
 import type { NewsEvent } from '../data/newsEvents';
 import { PriceChart } from './PriceChart';
 import { BalancePanel } from './BalancePanel';
@@ -27,16 +27,16 @@ interface Particle { id: string; x: number; y: number; }
 
 export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
   const { era } = config;
-  const engineRef = useRef<GameEngine | null>(null);
+  // The engine is mutable game state owned by this screen; holding it in state
+  // (rather than a ref) lets render read it without ref-during-render hazards.
+  const [engine, setEngine] = useState(() => new GameEngine(era, config));
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const chartAreaRef = useRef<HTMLDivElement>(null);
   const synthRef = useRef<SynthEngine>(new SynthEngine());
-  const saylorIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [speed, setSpeed] = useState<TimeSpeed>('PAUSED');
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [showGameOver, setShowGameOver] = useState(false);
-  const [isWin, setIsWin] = useState(false);
+  const [outcome, setOutcome] = useState<GameOutcome | null>(null);
   const [renderCount, setRenderCount] = useState(0);
   const [flashClass, setFlashClass] = useState('');
   const [particles, setParticles] = useState<Particle[]>([]);
@@ -49,19 +49,16 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
   const forceUpdate = () => setRenderCount(c => c + 1);
 
   useEffect(() => {
-    engineRef.current = new GameEngine(era, config);
+    const synth = synthRef.current;
     // Auto-start music — user already clicked Play on config screen (satisfies browser autoplay policy)
-    synthRef.current.start();
+    synth.start();
     // Periodic Saylor quote — fires every ~90s while game is running
-    saylorIntervalRef.current = setInterval(() => {
-      synthRef.current.speakSaylorQuote();
-    }, 90000);
-    forceUpdate();
+    const saylorInterval = setInterval(() => synth.speakSaylorQuote(), 90000);
     return () => {
-      synthRef.current.stop();
-      if (saylorIntervalRef.current) clearInterval(saylorIntervalRef.current);
+      synth.stop();
+      clearInterval(saylorInterval);
     };
-  }, [era, config]);
+  }, []);
 
   // Game loop
   useEffect(() => {
@@ -71,8 +68,6 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
     if (!cfg.daysPerTick) return;
 
     tickRef.current = setInterval(() => {
-      const engine = engineRef.current;
-      if (!engine) return;
       engine.tickDays(cfg.daysPerTick);
       const state = engine.getState();
 
@@ -80,17 +75,12 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
         setActiveNewsEvent(state.lastNewsEvent);
         setTimeout(() => setActiveNewsEvent(null), 500);
       }
-      if (state.metrics.isInsolvent) {
+      const result = engine.getOutcome();
+      if (result) {
         setSpeed('PAUSED');
-        setShowGameOver(true);
-        setIsWin(false);
+        setOutcome(result);
         setNotifications([...state.notifications]);
-        return;
-      }
-      if (engine.checkWin()) {
-        setSpeed('PAUSED');
-        setShowGameOver(true);
-        setIsWin(true);
+        if (result === 'BUST') return;
       }
       // Emergency BTC sale detected — trigger alarm + red flash
       if (state.emergencySoldBTC > 0) {
@@ -111,7 +101,7 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
     }, cfg.tickMs);
 
     return () => { if (tickRef.current) clearInterval(tickRef.current); };
-  }, [speed]);
+  }, [speed, engine]);
 
   const handleSpeedChange = useCallback((s: TimeSpeed) => setSpeed(s), []);
 
@@ -128,30 +118,24 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
   };
 
   const syncAndFlash = (flash: 'BUY' | 'SELL' | 'ATM') => {
-    const s = engineRef.current?.getState();
-    if (s) {
-      setNotifications([...s.notifications]);
-      setPrevStockPrice(s.metrics.stockPrice);
-      if (flash === 'BUY') { setFlashClass('flash-buy'); spawnParticles(7); setMobileTab('CHART'); synthRef.current.playBuySound(0.8); }
-      else if (flash === 'SELL') {
-        setFlashClass('flash-sell');
-        setStockCrashClass('stock-crash');
-        setTimeout(() => setStockCrashClass(''), 700);
-        setMobileTab('CHART');
-        synthRef.current.playSellSound(0.7);
-      }
-      else { setFlashClass('flash-atm'); synthRef.current.playATMSound(0.8); }
-      setTimeout(() => setFlashClass(''), 900);
+    const s = engine.getState();
+    setNotifications([...s.notifications]);
+    setPrevStockPrice(s.metrics.stockPrice);
+    if (flash === 'BUY') { setFlashClass('flash-buy'); spawnParticles(7); setMobileTab('CHART'); synthRef.current.playBuySound(0.8); }
+    else if (flash === 'SELL') {
+      setFlashClass('flash-sell');
+      setStockCrashClass('stock-crash');
+      setTimeout(() => setStockCrashClass(''), 700);
+      setMobileTab('CHART');
+      synthRef.current.playSellSound(0.7);
     }
+    else { setFlashClass('flash-atm'); synthRef.current.playATMSound(0.8); }
+    setTimeout(() => setFlashClass(''), 900);
+    // A trade can push the treasury into insolvency immediately (e.g. a large forced sale).
+    const result = engine.getOutcome();
+    if (result) { setSpeed('PAUSED'); setOutcome(result); }
     forceUpdate();
   };
-
-  const engine = engineRef.current;
-  if (!engine) return (
-    <div className="min-h-screen terminal-bg flex items-center justify-center text-[#6a3090] text-sm font-mono">
-      INITIALIZING TERMINAL...
-    </div>
-  );
 
   void renderCount;
 
@@ -167,12 +151,13 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
   const SPEEDS: TimeSpeed[] = ['PAUSED', '1D', '1W', '1M'];
 
   const handleRestart = () => {
-    engineRef.current = new GameEngine(era, config);
-    setShowGameOver(false);
+    setEngine(new GameEngine(era, config));
+    setOutcome(null);
     setSpeed('PAUSED');
     setNotifications([]);
     setParticles([]);
-    forceUpdate();
+    setPrevStockPrice(0);
+    setCrisisMode(false);
   };
 
   const MOBILE_TABS: { id: MobileTab; label: string; icon: string }[] = [
@@ -460,9 +445,9 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
         </div>
       </div>
 
-      {showGameOver && (
+      {outcome && (
         <GameOverScreen
-          isWin={isWin} metrics={metrics} balance={balance} era={era}
+          outcome={outcome} metrics={metrics} balance={balance} era={era}
           daysSurvived={daysSurvived} onRestart={handleRestart} onChangeEra={onExitToMenu}
         />
       )}

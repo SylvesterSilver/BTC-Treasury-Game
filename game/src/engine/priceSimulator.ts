@@ -7,6 +7,9 @@ export interface PricePoint {
   isProjected: boolean;
 }
 
+// Must exceed the game horizon (730 days) even when an era has no historical prefix.
+const FUTURE_PATH_DAYS = 800;
+
 export class PriceSimulator {
   private era: Era;
   private currentDay: number = 0;
@@ -49,7 +52,7 @@ export class PriceSimulator {
 
     this.prices = points;
     this.currentDay = points.length - 1;
-    this.futureCache = this.generateFuturePath(720);
+    this.futureCache = this.generateFuturePath(FUTURE_PATH_DAYS);
   }
 
   private generateFuturePath(days: number): number[] {
@@ -74,7 +77,7 @@ export class PriceSimulator {
 
   regenerateFuture(): void {
     this.seed = Math.floor(Math.random() * 1e9);
-    this.futureCache = this.generateFuturePath(720);
+    this.futureCache = this.generateFuturePath(FUTURE_PATH_DAYS);
   }
 
   advance(days: number = 1): PricePoint[] {

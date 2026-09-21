@@ -10,6 +10,16 @@ import type { NewsEvent } from '../data/newsEvents';
 export type GamePhase = 'RUNNING' | 'PAUSED' | 'GAME_OVER_WIN' | 'GAME_OVER_LOSE';
 export type TimeSpeed = 'PAUSED' | '1D' | '1W' | '1M';
 
+/**
+ * WIN      — reached the horizon with a treasury above the win threshold
+ * SURVIVED — reached the horizon solvent, but below the win threshold
+ * BUST     — insolvent before the horizon
+ */
+export type GameOutcome = 'WIN' | 'SURVIVED' | 'BUST';
+
+export const GAME_LENGTH_DAYS = 730;
+export const WIN_BTC_VALUE_MM = 10_000;
+
 export const TIME_SPEEDS: Record<TimeSpeed, { label: string; daysPerTick: number; tickMs: number }> = {
   PAUSED: { label: 'PAUSED', daysPerTick: 0, tickMs: 0 },
   '1D':   { label: '1 DAY/S', daysPerTick: 1,  tickMs: 800 },
@@ -49,7 +59,7 @@ export class GameEngine {
   private model: FinancialModel;
   private era: Era;
   private notifications: Notification[] = [];
-  private readonly totalGameDays: number = 730;
+  private readonly totalGameDays: number = GAME_LENGTH_DAYS;
   private lastTradeFlash: 'BUY' | 'SELL' | 'ATM' | null = null;
   private lastNewsEvent: NewsEvent | null = null;
   private firedEventIds = new Set<string>();
@@ -69,8 +79,9 @@ export class GameEngine {
     this.lastTradeFlash = null;
     this.lastNewsEvent = null;
 
+    const outcome = this.getOutcome();
     return {
-      phase: metrics.isInsolvent ? 'GAME_OVER_LOSE' : 'RUNNING',
+      phase: outcome === 'BUST' ? 'GAME_OVER_LOSE' : outcome ? 'GAME_OVER_WIN' : 'RUNNING',
       era: this.era,
       currentDay,
       currentDate: this.dayToDate(currentDay),
@@ -91,15 +102,31 @@ export class GameEngine {
   }
 
   tick(): void {
+    if (this.isTimeUp()) return;
     const newPoints = this.simulator.advance(1);
     if (newPoints.length > 0) {
-      this.model.tick(newPoints[0].price, this.simulator.getCurrentDay() % 7);
+      this.model.tick(newPoints[0].price);
     }
     this.maybeFireNewsEvent();
   }
 
+  /** Advances up to `days`, stopping early at the game horizon or on insolvency. */
   tickDays(days: number): void {
-    for (let i = 0; i < days; i++) this.tick();
+    for (let i = 0; i < days; i++) {
+      if (this.getOutcome()) return;
+      this.tick();
+    }
+  }
+
+  isTimeUp(): boolean {
+    return this.simulator.getCurrentDay() >= this.totalGameDays;
+  }
+
+  getOutcome(): GameOutcome | null {
+    const price = this.simulator.getCurrentPrice();
+    if (this.model.computeMetrics(price).isInsolvent) return 'BUST';
+    if (!this.isTimeUp()) return null;
+    return this.checkWin() ? 'WIN' : 'SURVIVED';
   }
 
   private maybeFireNewsEvent(): void {
@@ -195,8 +222,9 @@ export class GameEngine {
     const price = this.simulator.getCurrentPrice();
     const result = this.model.issuePreferredStock(amountMM, price);
     if (result.success) {
+      const rate = this.model.computeMetrics(price).strcRate;
       return this.addNotification('success',
-        `💎 $${amountMM.toFixed(0)}M preferred issued @ 8% annual div`);
+        `💎 $${amountMM.toFixed(0)}M STRC preferred issued @ ${(rate * 100).toFixed(1)}% effective yield`);
     }
     return this.addNotification('error', result.reason ?? 'Preferred failed');
   }
@@ -236,7 +264,7 @@ export class GameEngine {
   checkWin(): boolean {
     const balance = this.model.getBalance();
     const price = this.simulator.getCurrentPrice();
-    return (balance.btcHeld * price) / 1e6 > 10000 && this.simulator.getCurrentDay() >= this.totalGameDays;
+    return (balance.btcHeld * price) / 1e6 > WIN_BTC_VALUE_MM && this.isTimeUp();
   }
 
   getWinScore() {
