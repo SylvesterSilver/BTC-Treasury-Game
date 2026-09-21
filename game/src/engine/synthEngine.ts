@@ -35,7 +35,7 @@ export class SynthEngine {
       this.playing = true;
       this.chordIdx = 0;
       this.scheduleChord();
-    } catch (_e) {
+    } catch {
       // Web Audio not available
     }
   }
@@ -46,7 +46,7 @@ export class SynthEngine {
     if (this.master && this.ctx) {
       this.master.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.8);
       setTimeout(() => {
-        try { this.ctx?.close(); } catch (_e) { /* ignore */ }
+        try { this.ctx?.close(); } catch { /* ignore */ }
         this.ctx = null;
         this.master = null;
       }, 900);

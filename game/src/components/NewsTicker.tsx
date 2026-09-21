@@ -27,30 +27,29 @@ const TYPE_PREFIXES: Record<string, string> = {
   FILLER: '₿',
 };
 
+const SEED_ITEMS: TickerItem[] = TICKER_FILLER.slice(0, 8).map((t, i) => ({
+  id: `filler_${i}`,
+  text: t,
+  type: 'FILLER',
+}));
+
 export function NewsTicker({ activeEvent }: Props) {
-  const [items, setItems] = useState<TickerItem[]>([]);
+  const [items, setItems] = useState<TickerItem[]>(SEED_ITEMS);
+  const [lastInjected, setLastInjected] = useState<Props['activeEvent']>(null);
   const tickerRef = useRef<HTMLDivElement>(null);
 
-  // Seed with filler
-  useEffect(() => {
-    const seed: TickerItem[] = TICKER_FILLER.slice(0, 8).map((t, i) => ({
-      id: `filler_${i}`,
-      text: t,
-      type: 'FILLER',
-    }));
-    setItems(seed);
-  }, []);
-
-  // Inject active news events
-  useEffect(() => {
-    if (!activeEvent) return;
-    const item: TickerItem = {
-      id: `event_${Date.now()}`,
-      text: activeEvent.headline,
-      type: activeEvent.type as TickerItem['type'],
-    };
-    setItems(prev => [item, ...prev.slice(0, 14)]);
-  }, [activeEvent]);
+  // Inject each new active event exactly once, during render (no effect needed).
+  if (activeEvent && activeEvent !== lastInjected) {
+    setLastInjected(activeEvent);
+    setItems(prev => {
+      const item: TickerItem = {
+        id: `event_${prev.length}_${activeEvent.headline}`,
+        text: activeEvent.headline,
+        type: activeEvent.type as TickerItem['type'],
+      };
+      return [item, ...prev.slice(0, 14)];
+    });
+  }
 
   // Rotate filler periodically
   useEffect(() => {

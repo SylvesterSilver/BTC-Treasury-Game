@@ -266,7 +266,7 @@ export class FinancialModel {
     };
   }
 
-  tick(btcPrice: number, _dayOfWeek: number): void {
+  tick(btcPrice: number): void {
     this.dayCount++;
     const dailyRevenue = this.era.softwareRevenue / 90;
     const dailyOpex = (this.era.softwareRevenue * 0.85) / 90;
