@@ -10,7 +10,9 @@ interface Props {
   onBuyBTC: (amountMM: number) => void;
   onSellBTC: (btcAmount: number) => void;
   onIssueCommon: (sharesMM: number) => void;
+  onBuyback: (amountMM: number) => void;
   onIssuePreferred: (amountMM: number) => void;
+  onIssueDebt: (amountMM: number) => void;
   onPayDebt: (amountMM: number) => void;
   onHaltDividends: () => void;
   onResumeDividends: () => void;
@@ -26,13 +28,15 @@ function Quick({ label, onClick }: { label: string; onClick: () => void }) {
   );
 }
 
-export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueCommon, onIssuePreferred, onPayDebt, onHaltDividends, onResumeDividends, dividendsHalted }: Props) {
+export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueCommon, onBuyback, onIssuePreferred, onIssueDebt, onPayDebt, onHaltDividends, onResumeDividends, dividendsHalted }: Props) {
   const [tab, setTab] = useState<ActionTab>('BUY_BTC');
   const [buyAmt, setBuyAmt] = useState('');
   const [sellAmt, setSellAmt] = useState('');
   const [shareAmt, setShareAmt] = useState('');
+  const [buybackAmt, setBuybackAmt] = useState('');
   const [prefAmt, setPrefAmt] = useState('');
   const [debtAmt, setDebtAmt] = useState('');
+  const [issueDebtAmt, setIssueDebtAmt] = useState('');
 
   const TABS: { id: ActionTab; label: string; color: string }[] = [
     { id: 'BUY_BTC',   label: '₿ STACK',   color: '#F7931A' },
@@ -198,7 +202,7 @@ export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueComm
                   onChange={e => setShareAmt(e.target.value)}
                 />
                 <button className="btn-smash" style={{ width: 'auto', padding: '8px 16px', fontSize: '0.7rem' }}
-                  disabled={!shareAmt || parseFloat(shareAmt) <= 0}
+                  disabled={!shareAmt || parseFloat(shareAmt) <= 0 || metrics.atmCooldownDays > 0}
                   onClick={() => { onIssueCommon(parseFloat(shareAmt)); setShareAmt(''); }}>
                   SMASH ATM
                 </button>
@@ -207,6 +211,53 @@ export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueComm
                 <div className="text-xs text-[#6a3090] mt-1 font-mono">
                   Raises ≈ ${(parseFloat(shareAmt) * metrics.stockPrice).toFixed(1)}M
                   · dilution {((parseFloat(shareAmt) / (balance.sharesOutstanding + parseFloat(shareAmt))) * 100).toFixed(1)}%
+                </div>
+              )}
+              {metrics.atmCooldownDays > 0 && (
+                <div className="text-xs text-red-400 mt-2 font-mono">
+                  Window closed — {metrics.atmCooldownDays} day{metrics.atmCooldownDays === 1 ? '' : 's'} remaining
+                </div>
+              )}
+            </div>
+
+            <div className="p-3 rounded border bg-[#04000a]" style={{ borderColor: metrics.mNAV < 1 ? '#00FF8844' : '#2d0060' }}>
+              <div className="text-cyan-400 text-xs font-bold uppercase tracking-wider mb-2">🔄 SHARE BUYBACK</div>
+              <div className={`rounded p-2 text-xs mb-3 border ${
+                metrics.mNAV < 1.0
+                  ? 'bg-emerald-950/40 border-emerald-800/50 text-emerald-300'
+                  : metrics.mNAV >= 1.8
+                  ? 'bg-red-950/40 border-red-800/50 text-red-400'
+                  : 'bg-yellow-950/30 border-yellow-800/40 text-yellow-400'
+              }`}>
+                {metrics.mNAV < 1.0
+                  ? `DISCOUNT — buying back here is accretive to BTC/share`
+                  : metrics.mNAV >= 1.8
+                  ? `PREMIUM — buying your own expensive paper destroys value`
+                  : `Fair zone — modest accretion`}
+              </div>
+              <div className="flex flex-wrap gap-1 mb-2">
+                {[50, 100, 250, 500].map(v => (
+                  <Quick key={v} label={fmtQuickLabel(v)} onClick={() => setBuybackAmt(String(Math.min(v, Math.floor(balance.cashMM))))} />
+                ))}
+                <Quick label="MAX" onClick={() => setBuybackAmt(Math.floor(balance.cashMM * 0.9).toString())} />
+              </div>
+              <div className="flex gap-2">
+                <input
+                  className="flex-1 bg-[#04000a] border border-[#2d0060] rounded px-3 py-2 text-sm font-mono text-white focus:border-cyan-400 focus:outline-none"
+                  placeholder="$M to retire"
+                  type="number"
+                  value={buybackAmt}
+                  onChange={e => setBuybackAmt(e.target.value)}
+                />
+                <button className="btn-green px-4"
+                  disabled={!buybackAmt || parseFloat(buybackAmt) <= 0}
+                  onClick={() => { onBuyback(parseFloat(buybackAmt)); setBuybackAmt(''); }}>
+                  BUYBACK
+                </button>
+              </div>
+              {buybackAmt && parseFloat(buybackAmt) > 0 && metrics.stockPrice > 0 && (
+                <div className="text-xs text-[#6a3090] mt-1 font-mono">
+                  Retires ≈ {(parseFloat(buybackAmt) / metrics.stockPrice).toFixed(2)}M shares
                 </div>
               )}
             </div>
@@ -341,41 +392,76 @@ export function ActionPanel({ balance, metrics, onBuyBTC, onSellBTC, onIssueComm
 
         {/* ── PAY DEBT ── */}
         {tab === 'DEBT' && (
-          <div className="p-3 rounded border border-red-900/30 bg-red-950/10">
-            <div className="text-red-400 text-xs font-bold uppercase tracking-wider mb-2">🔓 RETIRE CONVERTIBLE DEBT</div>
-            <div className="rounded p-2 text-xs mb-3 bg-red-950/20 border border-red-800/30 text-red-300">
-              6% annual interest. Paying down cleans the balance sheet, boosts NAV, and lifts mNAV. Use when BTC is expensive.
-            </div>
-            <div className="text-xs text-[#6a3090] mb-3 font-mono">
-              Debt: <span className="text-red-400">${balance.convertibleDebtMM.toFixed(0)}M</span>
-              <span className="mx-2">·</span>
-              Cash: <span className="text-emerald-400">${balance.cashMM.toFixed(1)}M</span>
-            </div>
-            <div className="flex flex-wrap gap-1 mb-2">
-              {[50, 100, 250, 500].map(v => (
-                <Quick key={v} label={fmtQuickLabel(v)} onClick={() => setDebtAmt(String(Math.min(v, balance.convertibleDebtMM)))} />
-              ))}
-              <Quick label="ALL" onClick={() => setDebtAmt(Math.min(balance.convertibleDebtMM, balance.cashMM * 0.9).toFixed(0))} />
-            </div>
-            <div className="flex gap-2">
-              <input
-                className="flex-1 bg-[#04000a] border border-red-900/40 rounded px-3 py-2 text-sm font-mono text-white focus:border-red-400 focus:outline-none"
-                placeholder="Amount $M"
-                type="number"
-                value={debtAmt}
-                onChange={e => setDebtAmt(e.target.value)}
-              />
-              <button className="btn-red px-4"
-                disabled={!debtAmt || parseFloat(debtAmt) <= 0 || balance.convertibleDebtMM <= 0}
-                onClick={() => { onPayDebt(parseFloat(debtAmt)); setDebtAmt(''); }}>
-                RETIRE
-              </button>
-            </div>
-            {debtAmt && parseFloat(debtAmt) > 0 && (
-              <div className="text-xs text-emerald-400 mt-1 font-mono">
-                Saves ${(parseFloat(debtAmt) * 0.06 / 12).toFixed(2)}M/month in interest
+          <div className="space-y-3">
+            <div className="p-3 rounded border border-cyan-900/40 bg-cyan-950/10">
+              <div className="text-cyan-400 text-xs font-bold uppercase tracking-wider mb-2">📜 ISSUE CONVERTIBLE NOTES</div>
+              <div className="rounded p-2 text-xs mb-3 bg-cyan-950/20 border border-cyan-800/30 text-cyan-200">
+                Raise cash against the BTC stack. Leverage lifts dry powder and interest expense. Refused above 2.2x leverage or when mNAV is in the gutter.
               </div>
-            )}
+              <div className="flex flex-wrap gap-1 mb-2">
+                {[100, 250, 500, 1000].map(v => (
+                  <Quick key={v} label={fmtQuickLabel(v)} onClick={() => setIssueDebtAmt(String(v))} />
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  className="flex-1 bg-[#04000a] border border-cyan-900/40 rounded px-3 py-2 text-sm font-mono text-white focus:border-cyan-400 focus:outline-none"
+                  placeholder="Raise $M"
+                  type="number"
+                  value={issueDebtAmt}
+                  onChange={e => setIssueDebtAmt(e.target.value)}
+                />
+                <button className="btn-green px-4"
+                  disabled={!issueDebtAmt || parseFloat(issueDebtAmt) <= 0}
+                  onClick={() => { onIssueDebt(parseFloat(issueDebtAmt)); setIssueDebtAmt(''); }}>
+                  ISSUE
+                </button>
+              </div>
+              {issueDebtAmt && parseFloat(issueDebtAmt) > 0 && (
+                <div className="text-xs text-cyan-400 mt-1 font-mono">
+                  +${(parseFloat(issueDebtAmt) * metrics.currentInterestRate / 12).toFixed(2)}M/month interest at {(metrics.currentInterestRate * 100).toFixed(1)}%
+                </div>
+              )}
+            </div>
+
+            <div className="p-3 rounded border border-red-900/30 bg-red-950/10">
+              <div className="text-red-400 text-xs font-bold uppercase tracking-wider mb-2">🔓 RETIRE CONVERTIBLE DEBT</div>
+              <div className="rounded p-2 text-xs mb-3 bg-red-950/20 border border-red-800/30 text-red-300">
+                Paying down cleans the balance sheet, boosts NAV, and lifts mNAV. Use when BTC is expensive.
+              </div>
+              <div className="text-xs text-[#6a3090] mb-3 font-mono">
+                Debt: <span className="text-red-400">${balance.convertibleDebtMM.toFixed(0)}M</span>
+                <span className="mx-2">·</span>
+                Cash: <span className="text-emerald-400">${balance.cashMM.toFixed(1)}M</span>
+                <span className="mx-2">·</span>
+                Rate: <span className="text-yellow-400">{(metrics.currentInterestRate * 100).toFixed(1)}%</span>
+              </div>
+              <div className="flex flex-wrap gap-1 mb-2">
+                {[50, 100, 250, 500].map(v => (
+                  <Quick key={v} label={fmtQuickLabel(v)} onClick={() => setDebtAmt(String(Math.min(v, balance.convertibleDebtMM)))} />
+                ))}
+                <Quick label="ALL" onClick={() => setDebtAmt(Math.min(balance.convertibleDebtMM, balance.cashMM * 0.9).toFixed(0))} />
+              </div>
+              <div className="flex gap-2">
+                <input
+                  className="flex-1 bg-[#04000a] border border-red-900/40 rounded px-3 py-2 text-sm font-mono text-white focus:border-red-400 focus:outline-none"
+                  placeholder="Amount $M"
+                  type="number"
+                  value={debtAmt}
+                  onChange={e => setDebtAmt(e.target.value)}
+                />
+                <button className="btn-red px-4"
+                  disabled={!debtAmt || parseFloat(debtAmt) <= 0 || balance.convertibleDebtMM <= 0}
+                  onClick={() => { onPayDebt(parseFloat(debtAmt)); setDebtAmt(''); }}>
+                  RETIRE
+                </button>
+              </div>
+              {debtAmt && parseFloat(debtAmt) > 0 && (
+                <div className="text-xs text-emerald-400 mt-1 font-mono">
+                  Saves ${(parseFloat(debtAmt) * metrics.currentInterestRate / 12).toFixed(2)}M/month in interest
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

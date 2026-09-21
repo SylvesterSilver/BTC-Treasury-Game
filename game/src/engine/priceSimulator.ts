@@ -7,6 +7,13 @@ export interface PricePoint {
   isProjected: boolean;
 }
 
+export interface PriceSnapshot {
+  currentDay: number;
+  prices: PricePoint[];
+  seed: number;
+  futureCache: number[];
+}
+
 export class PriceSimulator {
   private era: Era;
   private currentDay: number = 0;
@@ -14,10 +21,30 @@ export class PriceSimulator {
   private seed: number;
   private futureCache: number[] = [];
 
-  constructor(era: Era, seed?: number) {
+  constructor(era: Era, seed?: number, snapshot?: PriceSnapshot) {
     this.era = era;
     this.seed = seed ?? Math.floor(Math.random() * 1e9);
-    this.initialize();
+    if (snapshot) {
+      this.restore(snapshot);
+    } else {
+      this.initialize();
+    }
+  }
+
+  serialize(): PriceSnapshot {
+    return {
+      currentDay: this.currentDay,
+      prices: this.prices.map(p => ({ ...p })),
+      seed: this.seed,
+      futureCache: [...this.futureCache],
+    };
+  }
+
+  restore(snapshot: PriceSnapshot): void {
+    this.currentDay = snapshot.currentDay;
+    this.prices = snapshot.prices.map(p => ({ ...p }));
+    this.seed = snapshot.seed;
+    this.futureCache = [...snapshot.futureCache];
   }
 
   private seededRandom(): number {

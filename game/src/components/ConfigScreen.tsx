@@ -1,4 +1,4 @@
-import { fmtMM } from '../utils/format';
+import { fmtMM, fmtPrice } from '../utils/format';
 import { useState } from 'react';
 import type { Era } from '../data/eras';
 import type { GameConfig } from '../data/gameConfig';
@@ -123,7 +123,7 @@ export function ConfigScreen({ era, onStart, onBack }: Props) {
                   <div className="text-xl font-bold font-mono text-bitcoin">
                     {maxBTC >= 1000 ? `${(maxBTC/1000).toFixed(1)}K ₿` : `${maxBTC.toFixed(0)} ₿`}
                   </div>
-                  <div className="text-[#3a1070] text-xs">@ {fmtMM(era.startPrice / 1e6 * 1e6 / 1e6 * 1)}{''} per BTC</div>
+                  <div className="text-[#3a1070] text-xs">@ {fmtPrice(era.startPrice)} per BTC</div>
                 </div>
                 <div>
                   <div className="text-[#6a3090] text-xs mb-0.5">Quarterly Burn</div>

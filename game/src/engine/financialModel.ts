@@ -58,6 +58,7 @@ export interface GameMetrics {
   sentimentLabel: string;
   sentimentColor: string;
   atmCooldown: number;
+  atmCooldownDays: number;
 }
 
 export interface GameEvent {
@@ -92,6 +93,19 @@ function computeSTRCRate(btcValueMM: number, preferredFaceValueMM: number, divid
   return dividendsHalted ? Math.min(baseRate + 0.35, 0.99) : baseRate;
 }
 
+export interface FinancialSnapshot {
+  balance: BalanceSheet;
+  mNAVLevel: number;
+  sentimentLevel: number;
+  atmIssuanceCount: number;
+  atmCooldownDays: number;
+  stockPriceMultiplier: number;
+  dayCount: number;
+  strcPriceHistory: number[];
+  startingCebePerShare: number;
+  currentInterestRate: number;
+}
+
 export class FinancialModel {
   private era: Era;
   private balance: BalanceSheet;
@@ -107,19 +121,49 @@ export class FinancialModel {
   private emergencySoldBTCThisTick: number = 0;
   private currentInterestRate: number;
 
-  constructor(era: Era, startingCapitalMM?: number) {
+  constructor(era: Era, startingCapitalMM?: number, startingBTCOverride?: number, snapshot?: FinancialSnapshot) {
     this.era = era;
     this.currentInterestRate = era.interestRate;
-    this.balance = this.initializeBalance(era, startingCapitalMM);
+    this.balance = this.initializeBalance(era, startingCapitalMM, startingBTCOverride);
     this.mNAVLevel = era.id === 'now2024' || era.id === 'future2025' ? 2.8 : 1.5;
     this.sentimentLevel = 50;
+    if (snapshot) this.restore(snapshot);
   }
 
-  private initializeBalance(era: Era, startingCapitalMM?: number): BalanceSheet {
-    const prefShares = era.startingPreferred / PREFERRED_FACE_PER_SHARE;
-    const initBTCPerShare = era.startingBTC / era.startingShares;
+  serialize(): FinancialSnapshot {
     return {
-      btcHeld: era.startingBTC,
+      balance: { ...this.balance },
+      mNAVLevel: this.mNAVLevel,
+      sentimentLevel: this.sentimentLevel,
+      atmIssuanceCount: this.atmIssuanceCount,
+      atmCooldownDays: this.atmCooldownDays,
+      stockPriceMultiplier: this.stockPriceMultiplier,
+      dayCount: this.dayCount,
+      strcPriceHistory: [...this.strcPriceHistory],
+      startingCebePerShare: this.startingCebePerShare,
+      currentInterestRate: this.currentInterestRate,
+    };
+  }
+
+  restore(snapshot: FinancialSnapshot): void {
+    this.balance = { ...snapshot.balance };
+    this.mNAVLevel = snapshot.mNAVLevel;
+    this.sentimentLevel = snapshot.sentimentLevel;
+    this.atmIssuanceCount = snapshot.atmIssuanceCount;
+    this.atmCooldownDays = snapshot.atmCooldownDays;
+    this.stockPriceMultiplier = snapshot.stockPriceMultiplier;
+    this.dayCount = snapshot.dayCount;
+    this.strcPriceHistory = [...snapshot.strcPriceHistory];
+    this.startingCebePerShare = snapshot.startingCebePerShare;
+    this.currentInterestRate = snapshot.currentInterestRate;
+  }
+
+  private initializeBalance(era: Era, startingCapitalMM?: number, startingBTCOverride?: number): BalanceSheet {
+    const btcHeld = startingBTCOverride ?? era.startingBTC;
+    const prefShares = era.startingPreferred / PREFERRED_FACE_PER_SHARE;
+    const initBTCPerShare = btcHeld / era.startingShares;
+    return {
+      btcHeld,
       cashMM: startingCapitalMM ?? era.startingCash,
       convertibleDebtMM: era.startingDebt,
       preferredFaceValueMM: era.startingPreferred,
@@ -127,9 +171,9 @@ export class FinancialModel {
       sharesOutstanding: era.startingShares,
       preferredSharesMM: prefShares,
       preferredDivAccruedMM: 0,
-      totalBTCSpentMM: era.startingBTC > 0 ? era.startingBTC * era.startPrice / 1e6 : 0,
+      totalBTCSpentMM: btcHeld > 0 ? btcHeld * era.startPrice / 1e6 : 0,
       startingBTCPerShare: initBTCPerShare,
-      startingBTCHeld: era.startingBTC,
+      startingBTCHeld: btcHeld,
       dividendsHalted: false,
     };
   }
@@ -258,6 +302,7 @@ export class FinancialModel {
       quarterlyBurnMM, monthsRunway, leverageRatio, currentInterestRate: this.currentInterestRate,
       isInsolvent, insolventReason, preferredCoverageRatio,
       sentiment, sentimentLabel, sentimentColor, atmCooldown,
+      atmCooldownDays: this.atmCooldownDays,
       strcRate, strcMarketPrice, strcPriceHistory: [...this.strcPriceHistory],
       evMNAV, cebeMNAV, cebePerShare, cebeYieldPct, startingCebePerShare: this.startingCebePerShare,
       dividendsHalted: this.balance.dividendsHalted,
@@ -378,6 +423,13 @@ export class FinancialModel {
     if (metrics.stockPrice <= 0) return { success: false, reason: 'Stock price is zero.', proceedsMM: 0, impact: empty };
     if (sharesMM <= 0 || sharesMM > 50) return { success: false, reason: 'Enter 0.1–50M shares.', proceedsMM: 0, impact: empty };
 
+    if (this.atmCooldownDays > 0) {
+      return { success: false, reason: `ATM window closed for ${this.atmCooldownDays} more day${this.atmCooldownDays === 1 ? '' : 's'}.`, proceedsMM: 0, impact: empty };
+    }
+    if (this.atmIssuanceCount >= 4) {
+      return { success: false, reason: 'ATM overheated — market will not absorb more paper until it cools.', proceedsMM: 0, impact: empty };
+    }
+
     const proceedsMM = sharesMM * metrics.stockPrice;
     this.balance.sharesOutstanding += sharesMM;
     this.balance.cashMM += proceedsMM;
@@ -402,6 +454,10 @@ export class FinancialModel {
     if (this.balance.dividendsHalted) return { success: false, reason: 'Cannot issue preferred — dividends are suspended. Preferred market is closed.' };
     const metrics = this.computeMetrics(btcPrice);
     if (metrics.mNAV < 0.8) return { success: false, reason: "Market won't buy preferred at this discount." };
+    const coverageAfter = metrics.btcValueMM / (this.balance.preferredFaceValueMM + proceedsMM);
+    if (this.balance.preferredFaceValueMM + proceedsMM > 0 && coverageAfter < 0.6) {
+      return { success: false, reason: 'Issuance refused — preferred would swamp BTC coverage (<0.6x).' };
+    }
     this.balance.preferredFaceValueMM += proceedsMM;
     this.balance.cashMM += proceedsMM;
     this.balance.preferredSharesMM += proceedsMM / PREFERRED_FACE_PER_SHARE;
@@ -430,6 +486,49 @@ export class FinancialModel {
     this.sentimentLevel = Math.min(100, this.sentimentLevel + impact.sentimentImpact);
     this.stockPriceMultiplier *= (1 + impact.stockImpactPct / 100);
     return { success: true, btcBought, impact };
+  }
+
+  issueConvertibleDebt(amountMM: number, btcPrice: number): { success: boolean; reason?: string } {
+    if (amountMM <= 0) return { success: false, reason: 'Invalid amount.' };
+    const metrics = this.computeMetrics(btcPrice);
+    if (metrics.mNAV < 0.7) return { success: false, reason: "Lenders won't underwrite convertibles at this discount." };
+    const btcValueMM = metrics.btcValueMM;
+    const leverageAfter = btcValueMM > 0
+      ? (this.balance.convertibleDebtMM + this.balance.preferredFaceValueMM + amountMM) / btcValueMM
+      : 999;
+    if (leverageAfter > 2.2) return { success: false, reason: 'Too levered — convertibles would exceed 2.2x BTC value.' };
+    this.balance.convertibleDebtMM += amountMM;
+    this.balance.cashMM += amountMM;
+    this.mNAVLevel = Math.max(0.2, this.mNAVLevel - 0.06);
+    this.sentimentLevel = Math.min(100, this.sentimentLevel + 2);
+    this.currentInterestRate = Math.min(0.15, this.currentInterestRate + Math.min(0.004, amountMM / 20000));
+    return { success: true };
+  }
+
+  buybackShares(usdMM: number, btcPrice: number): { success: boolean; reason?: string; sharesRetired: number } {
+    if (usdMM <= 0) return { success: false, reason: 'Invalid amount.', sharesRetired: 0 };
+    if (usdMM > this.balance.cashMM) return { success: false, reason: 'Insufficient cash.', sharesRetired: 0 };
+    const metrics = this.computeMetrics(btcPrice);
+    if (metrics.stockPrice <= 0) return { success: false, reason: 'Stock price is zero.', sharesRetired: 0 };
+    const sharesRetired = usdMM / metrics.stockPrice;
+    if (this.balance.sharesOutstanding - sharesRetired < 20) {
+      return { success: false, reason: 'Must keep at least 20M shares outstanding.', sharesRetired: 0 };
+    }
+    this.balance.cashMM -= usdMM;
+    this.balance.sharesOutstanding -= sharesRetired;
+    if (metrics.mNAV < 1.0) {
+      this.mNAVLevel = Math.min(4.0, this.mNAVLevel + 0.12);
+      this.sentimentLevel = Math.min(100, this.sentimentLevel + 6);
+      this.stockPriceMultiplier *= 1.04;
+    } else if (metrics.mNAV < 1.5) {
+      this.mNAVLevel = Math.min(4.0, this.mNAVLevel + 0.05);
+      this.sentimentLevel = Math.min(100, this.sentimentLevel + 3);
+      this.stockPriceMultiplier *= 1.02;
+    } else {
+      this.mNAVLevel = Math.max(0.2, this.mNAVLevel - 0.04);
+      this.sentimentLevel = Math.max(0, this.sentimentLevel - 2);
+    }
+    return { success: true, sharesRetired };
   }
 
   payDownDebt(amountMM: number): { success: boolean; reason?: string } {

@@ -24,11 +24,36 @@ export interface Era {
   macroEnv: string;
 }
 
-// Build a noisy price path through waypoints
-function buildCurve(waypoints: { day: number; price: number }[], totalDays: number, noise: number = 0.04): number[] {
+function hashSeed(str: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function mulberry32(seed: number): () => number {
+  return () => {
+    seed |= 0;
+    seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// Build a noisy price path through waypoints. Seeded so "historical" eras
+// are stable across reloads instead of reshuffling every page load.
+function buildCurve(
+  seedKey: string,
+  waypoints: { day: number; price: number }[],
+  totalDays: number,
+  noise: number = 0.04,
+): number[] {
+  const rand = mulberry32(hashSeed(seedKey));
   const prices: number[] = [];
   for (let i = 0; i < totalDays; i++) {
-    // Find surrounding waypoints
     let before = waypoints[0];
     let after = waypoints[waypoints.length - 1];
     for (const wp of waypoints) {
@@ -39,9 +64,9 @@ function buildCurve(waypoints: { day: number; price: number }[], totalDays: numb
     }
     const t = before.day === after.day ? 1 : (i - before.day) / (after.day - before.day);
     const logInterp = Math.log(before.price) + t * (Math.log(after.price) - Math.log(before.price));
-    // Extra noise burst every ~7 days for weekly candle effect
-    const weeklyJolt = (i % 7 === 0) ? (Math.random() - 0.5) * noise * 2 : 0;
-    const n = (Math.random() - 0.5) * 2 * noise + weeklyJolt;
+    const onWaypoint = waypoints.some(wp => wp.day === i);
+    const weeklyJolt = (!onWaypoint && i % 7 === 0) ? (rand() - 0.5) * noise * 2 : 0;
+    const n = onWaypoint ? 0 : (rand() - 0.5) * 2 * noise + weeklyJolt;
     prices.push(Math.exp(logInterp + n));
   }
   return prices;
@@ -54,7 +79,7 @@ export const ERAS: Era[] = [
     name: '2013 BULL RUN',
     subtitle: 'The First Mania',
     startYear: 2013, startMonth: 1, startPrice: 13,
-    historicalPrices: buildCurve([
+    historicalPrices: buildCurve('genesis', [
       { day: 0,   price: 13 },
       { day: 25,  price: 22 },
       { day: 45,  price: 18 },   // early dip
@@ -83,7 +108,7 @@ export const ERAS: Era[] = [
     name: '2017 EUPHORIA',
     subtitle: 'Retail Discovers Crypto',
     startYear: 2017, startMonth: 1, startPrice: 998,
-    historicalPrices: buildCurve([
+    historicalPrices: buildCurve('bull2017', [
       { day: 0,   price: 998 },
       { day: 20,  price: 1100 },
       { day: 40,  price: 1900 },
@@ -114,7 +139,7 @@ export const ERAS: Era[] = [
     name: '2018 CRYPTO WINTER',
     subtitle: 'Diamonds Are Made Under Pressure',
     startYear: 2018, startMonth: 1, startPrice: 13800,
-    historicalPrices: buildCurve([
+    historicalPrices: buildCurve('bear2018', [
       { day: 0,   price: 13800 },
       { day: 15,  price: 17000 }, // one last pump
       { day: 30,  price: 9800 },  // harsh rejection
@@ -144,7 +169,7 @@ export const ERAS: Era[] = [
     name: 'COVID CRASH 2020',
     subtitle: 'Black Thursday + The Rebound',
     startYear: 2020, startMonth: 1, startPrice: 7200,
-    historicalPrices: buildCurve([
+    historicalPrices: buildCurve('covid', [
       { day: 0,   price: 7200 },
       { day: 20,  price: 10400 }, // Feb ATH
       { day: 38,  price: 4800 },  // Black Thursday crash
@@ -175,7 +200,7 @@ export const ERAS: Era[] = [
     name: '2021 INSTITUTIONAL',
     subtitle: 'Wall Street Arrives',
     startYear: 2021, startMonth: 1, startPrice: 29000,
-    historicalPrices: buildCurve([
+    historicalPrices: buildCurve('bull2021', [
       { day: 0,   price: 29000 },
       { day: 20,  price: 40000 },
       { day: 38,  price: 58000 },
@@ -206,7 +231,7 @@ export const ERAS: Era[] = [
     name: '2022 TERRA/FTX COLLAPSE',
     subtitle: 'The Reckoning — Then the Rebuild',
     startYear: 2022, startMonth: 1, startPrice: 46000,
-    historicalPrices: buildCurve([
+    historicalPrices: buildCurve('bear2022', [
       { day: 0,   price: 46000 },
       { day: 18,  price: 43000 },
       { day: 35,  price: 38000 },
@@ -237,7 +262,7 @@ export const ERAS: Era[] = [
     name: '2024-25 ETF ERA',
     subtitle: 'BlackRock Changes Everything',
     startYear: 2024, startMonth: 1, startPrice: 42000,
-    historicalPrices: buildCurve([
+    historicalPrices: buildCurve('now2024', [
       { day: 0,   price: 42000 },
       { day: 18,  price: 48000 },  // ETF approval
       { day: 30,  price: 44000 },  // sell the news dip

@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { ERAS } from '../data/eras';
 import type { Era } from '../data/eras';
+import { loadGame, hasSave } from '../engine/saveGame';
+import { fmtPrice, fmtBTC } from '../utils/format';
 
 interface Props {
   onSelect: (era: Era) => void;
+  onContinue?: () => void;
 }
 
 const formatPrice = (p: number) => {
@@ -11,8 +14,9 @@ const formatPrice = (p: number) => {
   return `$${p}`;
 };
 
-export function EraSelect({ onSelect }: Props) {
+export function EraSelect({ onSelect, onContinue }: Props) {
   const [hovered, setHovered] = useState<string | null>(null);
+  const save = hasSave() ? loadGame() : null;
 
   return (
     <div className="min-h-screen terminal-bg flex flex-col items-center justify-start py-10 px-4">
@@ -26,7 +30,7 @@ export function EraSelect({ onSelect }: Props) {
             <div className="w-3 h-3 rounded-full bg-yellow-500/60" />
             <div className="w-3 h-3 rounded-full bg-green-500/60" />
           </div>
-          <span className="text-[#3a1070] text-xs font-mono">BTCS://TERMINAL/ERA_SELECT — v3.0</span>
+          <span className="text-[#3a1070] text-xs font-mono">BTCS://TERMINAL/ERA_SELECT — v15</span>
           <span className="text-bitcoin text-xs font-mono ticker-live">● LIVE</span>
         </div>
 
@@ -48,6 +52,27 @@ export function EraSelect({ onSelect }: Props) {
           </p>
         </div>
       </div>
+
+      {save && onContinue && (
+        <div className="w-full max-w-5xl mb-6">
+          <button
+            onClick={onContinue}
+            className="w-full game-card p-4 text-left hover:border-bitcoin transition-all"
+            style={{ borderColor: '#F7931A66', boxShadow: '0 0 20px rgba(247,147,26,0.15)' }}
+          >
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <div className="text-bitcoin text-xs font-bold uppercase tracking-wider mb-1">▶ CONTINUE LAST RUN</div>
+                <div className="text-white text-sm font-bold">{save.summary.eraName}</div>
+                <div className="text-[#6a3090] text-xs font-mono mt-0.5">
+                  Day {save.summary.daysSurvived} · {save.summary.currentDate} · {fmtBTC(save.summary.btcHeld)} · {fmtPrice(save.summary.stockPrice)}
+                </div>
+              </div>
+              <span className="btn-bitcoin">RESUME</span>
+            </div>
+          </button>
+        </div>
+      )}
 
       {/* Era Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 w-full max-w-6xl">

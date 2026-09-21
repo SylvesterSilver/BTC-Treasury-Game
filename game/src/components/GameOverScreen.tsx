@@ -9,12 +9,15 @@ import {
   type LeaderboardEntry,
 } from '../engine/leaderboard';
 
+import type { Objective } from '../engine/gameEngine';
+
 interface Props {
   isWin: boolean;
   metrics: GameMetrics;
   balance: BalanceSheet;
   era: Era;
   daysSurvived: number;
+  objectives?: Objective[];
   onRestart: () => void;
   onChangeEra: () => void;
 }
@@ -77,7 +80,7 @@ function LeaderboardTable({ entries, highlightScore }: { entries: LeaderboardEnt
   );
 }
 
-export function GameOverScreen({ isWin, metrics, balance, era, daysSurvived, onRestart, onChangeEra }: Props) {
+export function GameOverScreen({ isWin, metrics, balance, era, daysSurvived, objectives, onRestart, onChangeEra }: Props) {
   const rating = getRating(metrics.btcValueMM, daysSurvived);
   const priceChangePct = ((metrics.btcPrice - era.startPrice) / era.startPrice) * 100;
   const priceUp = metrics.btcPrice >= era.startPrice;
@@ -124,7 +127,7 @@ export function GameOverScreen({ isWin, metrics, balance, era, daysSurvived, onR
               <>
                 <div className="text-5xl mb-1 glow-text-bitcoin">₿</div>
                 <div className="text-bitcoin text-2xl font-bold glow-text-bitcoin">STACKED</div>
-                <div className="text-[#6a3090] text-xs mt-1">Bitcoin treasury mission accomplished</div>
+                <div className="text-[#6a3090] text-xs mt-1">Two years on the desk. Bitcoin treasury mission accomplished.</div>
               </>
             ) : (
               <>
@@ -184,6 +187,21 @@ export function GameOverScreen({ isWin, metrics, balance, era, daysSurvived, onR
             </div>
             <LeaderboardTable entries={leaderboard} highlightScore={submitted ? myScore : undefined} />
           </div>
+
+          {/* ── OBJECTIVES ── */}
+          {objectives && objectives.length > 0 && (
+            <div className="game-card p-3 mb-4">
+              <div className="section-label mb-2">MISSION CARD</div>
+              {objectives.map(obj => (
+                <div key={obj.id} className="flex justify-between py-1 text-xs font-mono">
+                  <span style={{ color: obj.done ? '#00FF88' : '#6a3090' }}>
+                    {obj.done ? '✓' : '✗'} {obj.label}
+                  </span>
+                  <span className="text-[#3a1070]">{obj.hint}</span>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* ── BTC PRICE JOURNEY ── */}
           <div className="rounded-lg border border-[#F7931A33] p-3 mb-4"

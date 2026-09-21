@@ -2,7 +2,7 @@ import { fmtMM, fmtPrice } from '../utils/format';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { GameConfig } from '../data/gameConfig';
 import { GameEngine, TIME_SPEEDS } from '../engine/gameEngine';
-import type { TimeSpeed, Notification } from '../engine/gameEngine';
+import type { TimeSpeed, Notification, EngineSnapshot } from '../engine/gameEngine';
 import type { NewsEvent } from '../data/newsEvents';
 import { PriceChart } from './PriceChart';
 import { BalancePanel } from './BalancePanel';
@@ -12,9 +12,13 @@ import { GameOverScreen } from './GameOverScreen';
 import { NewsTicker } from './NewsTicker';
 import { SynthEngine } from '../engine/synthEngine';
 import { DonateQR } from './DonateQR';
+import { TutorialOverlay } from './TutorialOverlay';
+import { HelpModal } from './HelpModal';
+import { saveGame, getMuted, setMutedPref, tutorialSeen } from '../engine/saveGame';
 
 interface Props {
   config: GameConfig;
+  snapshot?: EngineSnapshot | null;
   onExitToMenu: () => void;
   onExitToConfig: () => void;
 }
@@ -25,13 +29,14 @@ type MobileTab = 'CHART' | 'TRADE' | 'BALANCE';
 
 interface Particle { id: string; x: number; y: number; }
 
-export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
+export function GameScreen({ config, snapshot, onExitToMenu, onExitToConfig }: Props) {
   const { era } = config;
   const engineRef = useRef<GameEngine | null>(null);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const chartAreaRef = useRef<HTMLDivElement>(null);
   const synthRef = useRef<SynthEngine>(new SynthEngine());
   const saylorIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastSpeedRef = useRef<TimeSpeed>('1D');
 
   const [speed, setSpeed] = useState<TimeSpeed>('PAUSED');
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -45,14 +50,35 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
   const [activeNewsEvent, setActiveNewsEvent] = useState<NewsEvent | null>(null);
   const [mobileTab, setMobileTab] = useState<MobileTab>('CHART');
   const [crisisMode, setCrisisMode] = useState(false);
+  const [muted, setMuted] = useState(() => getMuted());
+  const [showHelp, setShowHelp] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(() => !tutorialSeen());
+  const [saveFlash, setSaveFlash] = useState(false);
 
   const forceUpdate = () => setRenderCount(c => c + 1);
 
+  const persist = useCallback((engine: GameEngine) => {
+    const state = engine.getState();
+    saveGame({
+      summary: {
+        eraId: era.id,
+        eraName: era.name,
+        currentDate: state.currentDate,
+        daysSurvived: state.daysSurvived,
+        stockPrice: state.metrics.stockPrice,
+        btcHeld: state.balance.btcHeld,
+        savedAt: new Date().toISOString(),
+      },
+      snapshot: engine.serialize(),
+    });
+  }, [era]);
+
   useEffect(() => {
-    engineRef.current = new GameEngine(era, config);
-    // Auto-start music — user already clicked Play on config screen (satisfies browser autoplay policy)
+    engineRef.current = snapshot
+      ? GameEngine.fromSnapshot(snapshot) ?? new GameEngine(era, config)
+      : new GameEngine(era, config);
+    synthRef.current.setMuted(getMuted());
     synthRef.current.start();
-    // Periodic Saylor quote — fires every ~90s while game is running
     saylorIntervalRef.current = setInterval(() => {
       synthRef.current.speakSaylorQuote();
     }, 90000);
@@ -61,7 +87,7 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
       synthRef.current.stop();
       if (saylorIntervalRef.current) clearInterval(saylorIntervalRef.current);
     };
-  }, [era, config]);
+  }, [era, config, snapshot]);
 
   // Game loop
   useEffect(() => {
@@ -74,10 +100,11 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
       const engine = engineRef.current;
       if (!engine) return;
       engine.tickDays(cfg.daysPerTick);
+      const news = engine.consumeNewsEvent();
       const state = engine.getState();
 
-      if (state.lastNewsEvent) {
-        setActiveNewsEvent(state.lastNewsEvent);
+      if (news) {
+        setActiveNewsEvent(news);
         setTimeout(() => setActiveNewsEvent(null), 500);
       }
       if (state.metrics.isInsolvent) {
@@ -85,14 +112,15 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
         setShowGameOver(true);
         setIsWin(false);
         setNotifications([...state.notifications]);
+        persist(engine);
         return;
       }
       if (engine.checkWin()) {
         setSpeed('PAUSED');
         setShowGameOver(true);
         setIsWin(true);
+        persist(engine);
       }
-      // Emergency BTC sale detected — trigger alarm + red flash
       if (state.emergencySoldBTC > 0) {
         setCrisisMode(true);
         synthRef.current.playAlarmSound();
@@ -107,13 +135,57 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
       } else {
         setNotifications([...state.notifications]);
       }
+      if (state.daysSurvived % 7 === 0) persist(engine);
       setRenderCount(c => c + 1);
     }, cfg.tickMs);
 
     return () => { if (tickRef.current) clearInterval(tickRef.current); };
-  }, [speed]);
+  }, [speed, persist]);
 
-  const handleSpeedChange = useCallback((s: TimeSpeed) => setSpeed(s), []);
+  const handleSpeedChange = useCallback((s: TimeSpeed) => {
+    if (s !== 'PAUSED') lastSpeedRef.current = s;
+    setSpeed(s);
+  }, []);
+
+  const persistNow = useCallback(() => {
+    if (!engineRef.current) return;
+    persist(engineRef.current);
+    setSaveFlash(true);
+    setTimeout(() => setSaveFlash(false), 1200);
+  }, [persist]);
+
+  const toggleMute = useCallback(() => {
+    setMuted(prev => {
+      const next = !prev;
+      synthRef.current.setMuted(next);
+      setMutedPref(next);
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (e.key === 'Escape') {
+        setShowHelp(false);
+        return;
+      }
+      if (e.key === ' ' || e.code === 'Space') {
+        e.preventDefault();
+        setSpeed(s => s === 'PAUSED' ? lastSpeedRef.current : 'PAUSED');
+        return;
+      }
+      if (e.key === '1') handleSpeedChange('1D');
+      if (e.key === '2') handleSpeedChange('1W');
+      if (e.key === '3') handleSpeedChange('1M');
+      if (e.key === 'm' || e.key === 'M') toggleMute();
+      if (e.key === 'h' || e.key === 'H' || e.key === '?') setShowHelp(v => !v);
+      if (e.key === 's' || e.key === 'S') persistNow();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [handleSpeedChange, toggleMute, persistNow]);
 
   const spawnParticles = (count = 5) => {
     if (!chartAreaRef.current) return;
@@ -143,6 +215,7 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
       else { setFlashClass('flash-atm'); synthRef.current.playATMSound(0.8); }
       setTimeout(() => setFlashClass(''), 900);
     }
+    if (engineRef.current) persist(engineRef.current);
     forceUpdate();
   };
 
@@ -172,6 +245,7 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
     setSpeed('PAUSED');
     setNotifications([]);
     setParticles([]);
+    if (engineRef.current) persist(engineRef.current);
     forceUpdate();
   };
 
@@ -201,6 +275,12 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
           </span>
           <span className="ticker-live text-bitcoin text-xs">●</span>
           <span className="text-[#6a3090] font-mono text-xs hidden md:block">{currentDate}</span>
+          <button onClick={persistNow} className="text-[#6a3090] hover:text-bitcoin text-xs uppercase tracking-wider hidden sm:block"
+            title="Save (S)">{saveFlash ? 'SAVED' : 'SAVE'}</button>
+          <button onClick={() => setShowHelp(true)} className="text-[#6a3090] hover:text-white text-xs uppercase tracking-wider"
+            title="Help (H)">?</button>
+          <button onClick={toggleMute} className="text-[#6a3090] hover:text-white text-xs uppercase tracking-wider"
+            title="Mute (M)">{muted ? 'MUTED' : 'AUDIO'}</button>
         </div>
       </div>
 
@@ -346,6 +426,20 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
         </div>
       </div>
 
+      {/* ── OBJECTIVES ── */}
+      <div className="border-b border-[#2d0060] bg-[#030008] px-3 py-1 flex-shrink-0 overflow-x-auto">
+        <div className="flex items-center gap-3 min-w-max">
+          <span className="section-label" style={{ marginBottom: 0 }}>MISSION</span>
+          {state.objectives.map(obj => (
+            <div key={obj.id} className="flex items-center gap-1.5 text-xs font-mono">
+              <span style={{ color: obj.done ? '#00FF88' : '#6a3090' }}>{obj.done ? '✓' : '○'}</span>
+              <span style={{ color: obj.done ? '#00FF88' : '#9a7ab8' }}>{obj.label}</span>
+              <span className="text-[#3a1070]">{obj.hint}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* ── MAIN CONTENT — desktop 3-col, mobile tabbed ── */}
       <div className="flex-1 min-h-0 overflow-hidden">
 
@@ -372,7 +466,9 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
               onBuyBTC={(amt) => { engine.buyBTC(amt); syncAndFlash('BUY'); }}
               onSellBTC={(amt) => { engine.sellBTC(amt); syncAndFlash('SELL'); }}
               onIssueCommon={(shares) => { engine.issueCommonStock(shares); syncAndFlash('ATM'); }}
+              onBuyback={(amt) => { engine.buybackShares(amt); syncAndFlash('ATM'); }}
               onIssuePreferred={(amt) => { engine.issuePreferredStock(amt); syncAndFlash('ATM'); }}
+              onIssueDebt={(amt) => { engine.issueConvertibleDebt(amt); syncAndFlash('ATM'); }}
               onPayDebt={(amt) => { engine.payDownDebt(amt); syncAndFlash('ATM'); }}
               onHaltDividends={() => { engine.haltDividends(); syncAndFlash('ATM'); forceUpdate(); }}
               onResumeDividends={() => { engine.resumeDividends(); syncAndFlash('ATM'); forceUpdate(); }}
@@ -415,7 +511,9 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
                   onBuyBTC={(amt) => { engine.buyBTC(amt); syncAndFlash('BUY'); }}
                   onSellBTC={(amt) => { engine.sellBTC(amt); syncAndFlash('SELL'); }}
                   onIssueCommon={(shares) => { engine.issueCommonStock(shares); syncAndFlash('ATM'); }}
+                  onBuyback={(amt) => { engine.buybackShares(amt); syncAndFlash('ATM'); }}
                   onIssuePreferred={(amt) => { engine.issuePreferredStock(amt); syncAndFlash('ATM'); }}
+                  onIssueDebt={(amt) => { engine.issueConvertibleDebt(amt); syncAndFlash('ATM'); }}
                   onPayDebt={(amt) => { engine.payDownDebt(amt); syncAndFlash('ATM'); }}
                   onHaltDividends={() => { engine.haltDividends(); syncAndFlash('ATM'); forceUpdate(); }}
                   onResumeDividends={() => { engine.resumeDividends(); syncAndFlash('ATM'); forceUpdate(); }}
@@ -463,9 +561,12 @@ export function GameScreen({ config, onExitToMenu, onExitToConfig }: Props) {
       {showGameOver && (
         <GameOverScreen
           isWin={isWin} metrics={metrics} balance={balance} era={era}
-          daysSurvived={daysSurvived} onRestart={handleRestart} onChangeEra={onExitToMenu}
+          daysSurvived={daysSurvived} objectives={state.objectives}
+          onRestart={handleRestart} onChangeEra={onExitToMenu}
         />
       )}
+      {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+      {showTutorial && <TutorialOverlay onClose={() => setShowTutorial(false)} />}
     </div>
   );
 }

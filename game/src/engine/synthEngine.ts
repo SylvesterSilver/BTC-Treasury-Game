@@ -4,6 +4,7 @@ export class SynthEngine {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
   private playing = false;
+  private muted = false;
   private beatTimer: ReturnType<typeof setTimeout> | null = null;
   private chordIdx = 0;
 
@@ -23,6 +24,18 @@ export class SynthEngine {
   private readonly BEAT_MS = 3800; // ~16 beats @ ~100 BPM chord changes
 
   isPlaying() { return this.playing; }
+  isMuted() { return this.muted; }
+
+  setMuted(muted: boolean) {
+    this.muted = muted;
+    if (this.master && this.ctx) {
+      this.master.gain.cancelScheduledValues(this.ctx.currentTime);
+      this.master.gain.setValueAtTime(muted ? 0 : 0.22, this.ctx.currentTime);
+    }
+    if (muted && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+  }
 
   start() {
     if (this.playing) return;
@@ -30,7 +43,7 @@ export class SynthEngine {
       this.ctx = new AudioContext();
       this.master = this.ctx.createGain();
       this.master.gain.setValueAtTime(0, this.ctx.currentTime);
-      this.master.gain.linearRampToValueAtTime(0.22, this.ctx.currentTime + 1.5);
+      this.master.gain.linearRampToValueAtTime(this.muted ? 0 : 0.22, this.ctx.currentTime + 1.5);
       this.master.connect(this.ctx.destination);
       this.playing = true;
       this.chordIdx = 0;
@@ -176,7 +189,7 @@ export class SynthEngine {
   // Short satisfying synth "coin" sound on BTC buy
   // Rising arpeggio: D4 → F#4 → A4 → D5, with slight shimmer
   playBuySound(volume: number = 1.0) {
-    if (!this.ctx || !this.master) return;
+    if (this.muted || !this.ctx || !this.master) return;
     const now = this.ctx.currentTime;
     // D major arpeggio (happy, ascending, coin-like)
     const notes = [293.66, 369.99, 440.00, 587.33];
@@ -226,7 +239,7 @@ export class SynthEngine {
 
   // 80s ATM sound — mechanical synth "ka-CHING" with descending wobble
   playATMSound(volume: number = 0.9) {
-    if (!this.ctx || !this.master) return;
+    if (this.muted || !this.ctx || !this.master) return;
     const now = this.ctx.currentTime;
 
     // 1. Mechanical "chunk" — filtered noise burst
@@ -287,7 +300,7 @@ export class SynthEngine {
 
   // Sell BTC sound — descending doom synth
   playSellSound(volume: number = 0.8) {
-    if (!this.ctx || !this.master) return;
+    if (this.muted || !this.ctx || !this.master) return;
     const now = this.ctx.currentTime;
 
     // Descending minor arpeggio — feels like dropping value
@@ -321,6 +334,7 @@ export class SynthEngine {
   // "There is no second best" — Michael Saylor quote via Web Speech API
   // Fires periodically while game is running (~every 90s)
   speakSaylorQuote() {
+    if (this.muted) return;
     if (!('speechSynthesis' in window)) return;
     if (window.speechSynthesis.speaking) return;
 
@@ -352,7 +366,7 @@ export class SynthEngine {
 
   // Emergency alarm — aggressive klaxon
   playAlarmSound() {
-    if (!this.ctx || !this.master) return;
+    if (this.muted || !this.ctx || !this.master) return;
     const now = this.ctx.currentTime;
     const BEEP = 0.11;
     const PAUSE = 0.04;
